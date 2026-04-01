@@ -14,10 +14,9 @@ const MOTIVOS = [
 
 const MENSAGENS_LOADING = [
   'Enviando documento...',
-  'Analisando com IA...',
   'Extraindo informações...',
   'Quase pronto...'
-];
+]; 
 
 const ehMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
