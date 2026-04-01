@@ -54,6 +54,9 @@ def init_db():
                     criado_em  TIMESTAMP     DEFAULT NOW()
                 )
             """)
+            cur.execute(
+                "ALTER TABLE devolucoes ADD COLUMN IF NOT EXISTS observacao TEXT DEFAULT ''"
+            )
         conn.commit()
     print('Banco inicializado.')
 
@@ -91,7 +94,7 @@ def extrair_com_ocr(caminho, ext):
             texto = pytesseract.image_to_string(img, lang='por')
     except Exception as e:
         print(f'OCR falhou: {e}')
-        return {'cliente': '', 'nf': '', 'valor': '', '_metodo': 'erro_ocr'}
+        return {'cliente': '', 'nf': '', 'valor': '', 'vendedor': '', 'dt': '', '_metodo': 'erro_ocr'}
 
     nf = ''
     m = re.search(r'N[o0]\s*[:.]?\s*(\d{6,12})', texto)
@@ -162,7 +165,6 @@ def extrair_documento():
     try:
         arquivo.save(caminho)
 
-        # Tenta Gemini primeiro
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
                 import google.generativeai as genai
@@ -196,7 +198,6 @@ Retorne SOMENTE o JSON puro sem markdown."""
                 ])
                 texto = resposta.text.strip()
 
-                # Remove markdown se presente
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
                 texto = re.sub(r'\n?```$', '', texto)
 
@@ -212,7 +213,6 @@ Retorne SOMENTE o JSON puro sem markdown."""
             except Exception as e:
                 print(f'Gemini falhou, usando fallback OCR: {e}')
 
-        # Fallback OCR
         resultado = extrair_com_ocr(caminho, ext)
         return jsonify(resultado)
 
@@ -223,51 +223,6 @@ Retorne SOMENTE o JSON puro sem markdown."""
             os.remove(caminho)
         except Exception:
             pass
-
-
-@app.route('/devolucoes', methods=['POST'])
-def criar_devolucao():
-    body = request.get_json() or {}
-    motorista = body.get('motorista', '').strip()
-    cliente   = body.get('cliente', '').strip()
-    nf        = body.get('nf', '').strip()
-    motivo    = body.get('motivo', '').strip()
-
-    if not motorista or not cliente or not nf or not motivo:
-        return jsonify({'erro': 'Campos obrigatorios: motorista, cliente, nf, motivo.'}), 400
-
-    valor_str = str(body.get('valor') or '0').replace(',', '.')
-    try:
-        valor = float(valor_str)
-    except ValueError:
-        valor = 0.0
-
-    try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO devolucoes
-                       (data, placa, dt, motorista, vendedor, cliente, nf, motivo, valor)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                       RETURNING *""",
-                    (
-                        body.get('data'),
-                        body.get('placa') or None,
-                        body.get('dt') or None,
-                        motorista,
-                        body.get('vendedor') or None,
-                        cliente,
-                        nf,
-                        motivo,
-                        valor
-                    )
-                )
-                row = cur.fetchone()
-                registro = row_to_dict(row, cur)
-            conn.commit()
-        return jsonify(registro), 201
-    except Exception as e:
-        return jsonify({'erro': str(e)}), 500
 
 
 @app.route('/devolucoes/datas')
@@ -284,18 +239,76 @@ def listar_datas():
                 rows = cur.fetchall()
                 resultado = []
                 for row in rows:
-                    d = {
+                    resultado.append({
                         'data':       row[0].isoformat() if row[0] else None,
                         'quantidade': row[1],
                         'total':      float(row[2]) if row[2] is not None else 0.0
-                    }
-                    resultado.append(d)
+                    })
         return jsonify(resultado)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
 
 
-@app.route('/devolucoes')
+@app.route('/devolucoes/busca')
+def buscar_devolucoes():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT id, data, cliente, nf, valor, motivo
+                       FROM devolucoes
+                       WHERE cliente ILIKE %s OR nf ILIKE %s
+                       ORDER BY criado_em DESC
+                       LIMIT 10""",
+                    (f'%{q}%', f'%{q}%')
+                )
+                rows = cur.fetchall()
+                resultado = []
+                for row in rows:
+                    resultado.append({
+                        'id':      row[0],
+                        'data':    row[1].isoformat() if row[1] else None,
+                        'cliente': row[2],
+                        'nf':      row[3],
+                        'valor':   float(row[4]) if row[4] is not None else 0.0,
+                        'motivo':  row[5]
+                    })
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/devolucoes/recentes')
+def listar_recentes():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT placa, motorista FROM devolucoes
+                       ORDER BY criado_em DESC LIMIT 30"""
+                )
+                rows = cur.fetchall()
+                placas = []
+                motoristas = []
+                seen_p = set()
+                seen_m = set()
+                for row in rows:
+                    p, m = row[0], row[1]
+                    if p and p not in seen_p and len(placas) < 5:
+                        placas.append(p)
+                        seen_p.add(p)
+                    if m and m not in seen_m and len(motoristas) < 5:
+                        motoristas.append(m)
+                        seen_m.add(m)
+        return jsonify({'placas': placas, 'motoristas': motoristas})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/devolucoes', methods=['GET'])
 def listar_devolucoes():
     data = request.args.get('data')
     try:
@@ -308,6 +321,66 @@ def listar_devolucoes():
                 rows = cur.fetchall()
                 resultado = [row_to_dict(r, cur) for r in rows]
         return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/devolucoes', methods=['POST'])
+def criar_devolucao():
+    body = request.get_json() or {}
+    motorista = body.get('motorista', '').strip()
+    cliente   = body.get('cliente', '').strip()
+    nf        = body.get('nf', '').strip()
+    motivo    = body.get('motivo', '').strip()
+
+    if not motorista or not cliente or not nf or not motivo:
+        return jsonify({'erro': 'Campos obrigatórios: motorista, cliente, nf, motivo.'}), 400
+
+    valor_str = str(body.get('valor') or '0').replace(',', '.')
+    try:
+        valor = float(valor_str)
+    except ValueError:
+        valor = 0.0
+
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                # Verificar NF duplicada
+                cur.execute(
+                    'SELECT id, cliente, data FROM devolucoes WHERE nf = %s',
+                    (nf,)
+                )
+                existente = cur.fetchone()
+                if existente:
+                    data_fmt = existente[2].strftime('%d/%m/%Y') if existente[2] else ''
+                    return jsonify({
+                        'erro':      'NF duplicada',
+                        'duplicado': True,
+                        'mensagem':  f'A NF {nf} já foi registrada para o cliente {existente[1]} em {data_fmt}'
+                    }), 409
+
+                cur.execute(
+                    """INSERT INTO devolucoes
+                       (data, placa, dt, motorista, vendedor, cliente, nf, motivo, valor, observacao)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       RETURNING *""",
+                    (
+                        body.get('data'),
+                        body.get('placa') or None,
+                        body.get('dt') or None,
+                        motorista,
+                        body.get('vendedor') or None,
+                        cliente,
+                        nf,
+                        motivo,
+                        valor,
+                        body.get('observacao') or ''
+                    )
+                )
+                row = cur.fetchone()
+                registro = row_to_dict(row, cur)
+            conn.commit()
+        return jsonify(registro), 201
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
 
@@ -328,7 +401,7 @@ def atualizar_devolucao(id):
                 cur.execute(
                     """UPDATE devolucoes
                        SET data=%s, placa=%s, dt=%s, motorista=%s, vendedor=%s,
-                           cliente=%s, nf=%s, motivo=%s, valor=%s
+                           cliente=%s, nf=%s, motivo=%s, valor=%s, observacao=%s
                        WHERE id=%s
                        RETURNING *""",
                     (
@@ -341,12 +414,13 @@ def atualizar_devolucao(id):
                         body.get('nf'),
                         body.get('motivo'),
                         valor,
+                        body.get('observacao') or '',
                         id
                     )
                 )
                 row = cur.fetchone()
                 if not row:
-                    return jsonify({'erro': 'Registro nao encontrado.'}), 404
+                    return jsonify({'erro': 'Registro não encontrado.'}), 404
                 registro = row_to_dict(row, cur)
             conn.commit()
         return jsonify(registro)
@@ -365,7 +439,7 @@ def deletar_devolucao(id):
                 )
                 row = cur.fetchone()
                 if not row:
-                    return jsonify({'erro': 'Registro nao encontrado.'}), 404
+                    return jsonify({'erro': 'Registro não encontrado.'}), 404
             conn.commit()
         return jsonify({'mensagem': 'Removido com sucesso.'})
     except Exception as e:

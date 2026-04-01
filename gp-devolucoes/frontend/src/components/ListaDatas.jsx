@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL;
@@ -39,6 +39,10 @@ export default function ListaDatas() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
+  const [busca, setBusca] = useState('');
+  const [resultadosBusca, setResultadosBusca] = useState([]);
+  const buscaRef = useRef(null);
+
   useEffect(() => {
     fetch(`${API}/devolucoes/datas`)
       .then(r => r.json())
@@ -51,6 +55,21 @@ export default function ListaDatas() {
         setCarregando(false);
       });
   }, []);
+
+  // Busca com debounce
+  useEffect(() => {
+    if (!busca.trim()) {
+      setResultadosBusca([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`${API}/devolucoes/busca?q=${encodeURIComponent(busca.trim())}`)
+        .then(r => r.json())
+        .then(dados => setResultadosBusca(Array.isArray(dados) ? dados : []))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [busca]);
 
   const hoje = hojeISO();
   const mesAtual = hoje.slice(0, 7);
@@ -89,6 +108,46 @@ export default function ListaDatas() {
             <div className="stat-valor">{qtdMes}</div>
             <div className="stat-label">Este mês</div>
           </div>
+        </div>
+
+        {/* BUSCA */}
+        <div className="busca-container" ref={buscaRef}>
+          <div className="busca-input-wrapper">
+            <div className="busca-lupa" />
+            <input
+              className="busca-input"
+              type="text"
+              placeholder="Buscar por cliente ou NF..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+            />
+          </div>
+          {busca.trim() && resultadosBusca.length > 0 && (
+            <div className="busca-resultados">
+              {resultadosBusca.map(r => (
+                <div
+                  key={r.id}
+                  className="busca-resultado-item"
+                  onClick={() => { navigate(`/dia/${r.data}`); setBusca(''); }}
+                >
+                  <div className="busca-resultado-cliente">{r.cliente}</div>
+                  <div className="busca-resultado-meta">
+                    <span>NF: {r.nf}</span>
+                    <span>{r.data ? r.data.split('T')[0].split('-').reverse().join('/') : ''}</span>
+                    <span className="busca-resultado-valor">{formatarValor(r.valor)}</span>
+                    <span>{r.motivo}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {busca.trim() && resultadosBusca.length === 0 && (
+            <div className="busca-resultados">
+              <div className="busca-resultado-item" style={{ cursor: 'default', color: 'var(--cinza-texto)' }}>
+                <div style={{ fontFamily: 'Barlow, sans-serif', fontSize: 13 }}>Nenhum resultado encontrado</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="page-title">DEVOLUÇÕES</div>

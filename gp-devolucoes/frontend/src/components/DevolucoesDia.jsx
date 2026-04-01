@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 const API = import.meta.env.VITE_API_URL;
 
 const MOTIVOS = [
-  'ENDERECO ERRADO',
+  'ENDEREÇO ERRADO',
   'PDV FECHADO',
   'FALTA DE PAGAMENTO',
   'DUPLICIDADE',
@@ -13,13 +13,18 @@ const MOTIVOS = [
   'OUTROS'
 ];
 
+function hojeISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function badgeMotivo(motivo) {
   const m = (motivo || '').toUpperCase();
   if (m.includes('ENDERECO') || m.includes('ENDEREÇO')) return 'badge-motivo badge-endereco';
-  if (m.includes('PDV')) return 'badge-motivo badge-pdv';
-  if (m.includes('PAGAMENTO')) return 'badge-motivo badge-pagamento';
+  if (m.includes('PDV'))         return 'badge-motivo badge-pdv';
+  if (m.includes('PAGAMENTO'))   return 'badge-motivo badge-pagamento';
   if (m.includes('DUPLICIDADE')) return 'badge-motivo badge-duplicidade';
-  if (m.includes('RECUSA')) return 'badge-motivo badge-recusa';
+  if (m.includes('RECUSA'))      return 'badge-motivo badge-recusa';
   return 'badge-motivo badge-outros';
 }
 
@@ -41,47 +46,42 @@ function formatarValor(v) {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function Toast({ toast }) {
+  if (!toast.visivel) return null;
+  return (
+    <div className="toast" style={{ background: toast.cor || '#16a34a' }}>
+      <div className="toast-check">&#10003;</div>
+      {toast.mensagem}
+    </div>
+  );
+}
+
 function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
   const [form, setForm] = useState({
-    data:      registro.data ? registro.data.split('T')[0] : '',
-    placa:     registro.placa    || '',
-    dt:        registro.dt       || '',
-    motorista: registro.motorista || '',
-    vendedor:  registro.vendedor  || '',
-    cliente:   registro.cliente   || '',
-    nf:        registro.nf        || '',
-    motivo:    registro.motivo    || '',
-    valor:     registro.valor ? String(parseFloat(registro.valor).toFixed(2)).replace('.', ',') : ''
+    data:       registro.data ? registro.data.split('T')[0] : '',
+    placa:      registro.placa     || '',
+    dt:         registro.dt        || '',
+    motorista:  registro.motorista || '',
+    vendedor:   registro.vendedor  || '',
+    cliente:    registro.cliente   || '',
+    nf:         registro.nf        || '',
+    motivo:     registro.motivo    || '',
+    valor:      registro.valor ? String(parseFloat(registro.valor).toFixed(2)).replace('.', ',') : '',
+    observacao: registro.observacao || ''
   });
 
-  const [motivoOutros, setMotivoOutros] = useState(
-    !MOTIVOS.includes((registro.motivo || '').toUpperCase()) && registro.motivo ? registro.motivo : ''
-  );
-  const [usandoOutros, setUsandoOutros] = useState(
-    !MOTIVOS.slice(0, 5).includes((registro.motivo || '').toUpperCase())
+  const [motivoSelect, setMotivoSelect] = useState(
+    MOTIVOS.includes((registro.motivo || '').toUpperCase()) ? registro.motivo : 'OUTROS'
   );
 
   function set(campo, val) {
     setForm(f => ({ ...f, [campo]: val }));
   }
 
-  function handleMotivo(val) {
-    if (val === 'OUTROS') {
-      setUsandoOutros(true);
-      set('motivo', motivoOutros || 'OUTROS');
-    } else {
-      setUsandoOutros(false);
-      setMotivoOutros('');
-      set('motivo', val);
-    }
+  function handleMotivoSelect(val) {
+    setMotivoSelect(val);
+    if (val && val !== 'OUTROS') set('motivo', val);
   }
-
-  function handleMotivoOutros(val) {
-    setMotivoOutros(val);
-    set('motivo', val || 'OUTROS');
-  }
-
-  const motivoSelect = usandoOutros ? 'OUTROS' : form.motivo;
 
   return (
     <div className="form-grid">
@@ -95,19 +95,27 @@ function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
       </div>
       <div className="form-grupo">
         <label className="form-label form-label-obrigatorio">MOTIVO DA DEVOLUÇÃO</label>
-        <select className="form-select" value={motivoSelect} onChange={e => handleMotivo(e.target.value)}>
-          <option value="">Selecione o motivo...</option>
+        <select className="form-select" value={motivoSelect} onChange={e => handleMotivoSelect(e.target.value)}>
+          <option value="">Selecione ou escreva o motivo...</option>
           {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        {usandoOutros && (
-          <textarea
-            className="form-textarea"
-            style={{ marginTop: 8 }}
-            placeholder="Descreva o motivo"
-            value={motivoOutros}
-            onChange={e => handleMotivoOutros(e.target.value)}
-          />
-        )}
+        <textarea
+          className="form-textarea"
+          style={{ marginTop: 8, minHeight: 80 }}
+          placeholder="Descreva o motivo ou complemento..."
+          value={form.motivo}
+          onChange={e => { set('motivo', e.target.value); setMotivoSelect(''); }}
+        />
+      </div>
+      <div className="form-grupo">
+        <label className="form-label">OBSERVAÇÃO</label>
+        <textarea
+          className="form-textarea"
+          style={{ minHeight: 70 }}
+          placeholder="Observação adicional (opcional)..."
+          value={form.observacao}
+          onChange={e => set('observacao', e.target.value)}
+        />
       </div>
       <div className="form-grupo">
         <label className="form-label form-label-obrigatorio">CLIENTE</label>
@@ -146,11 +154,16 @@ function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
 export default function DevolucoesDia() {
   const { data } = useParams();
   const navigate = useNavigate();
+
   const [registros, setRegistros] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [editando, setEditando] = useState(null);
   const [excluindo, setExcluindo] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  const [filtroMotivo, setFiltroMotivo] = useState('');
+  const [filtroMotorista, setFiltroMotorista] = useState('');
+  const [toast, setToast] = useState({ visivel: false, mensagem: '', cor: '' });
 
   useEffect(() => {
     fetch(`${API}/devolucoes?data=${data}`)
@@ -161,6 +174,11 @@ export default function DevolucoesDia() {
       })
       .catch(() => setCarregando(false));
   }, [data]);
+
+  function mostrarToast(mensagem, cor = '#16a34a') {
+    setToast({ visivel: true, mensagem, cor });
+    setTimeout(() => setToast({ visivel: false, mensagem: '', cor: '' }), 4000);
+  }
 
   async function salvarEdicao(form) {
     setSalvando(true);
@@ -197,22 +215,42 @@ export default function DevolucoesDia() {
     }
   }
 
+  function duplicarRegistro(r) {
+    navigate('/nova', {
+      state: {
+        prefill: {
+          motorista:  r.motorista,
+          motivo:     r.motivo,
+          placa:      r.placa,
+          dt:         r.dt,
+          vendedor:   r.vendedor,
+          cliente:    r.cliente,
+          valor:      r.valor,
+          observacao: r.observacao,
+          nf:         '',
+          data:       hojeISO()
+        }
+      }
+    });
+  }
+
   function exportarExcel() {
+    const lista = registrosFiltrados;
     const wb = XLSX.utils.book_new();
     const aoa = [];
 
     aoa.push(['PLANILHA DE DEVOLUCAO DIARIA CD- ITABAIANA', '', '', '', '', '', '', '', '']);
     aoa.push(['DATA', 'PLACA', 'DT', 'MOTORISTA', 'VENDEDOR', 'CLIENTE', 'NF', 'MOTIVO DA DEVOLUCAO', 'VALOR']);
 
-    registros.forEach(r => {
+    lista.forEach(r => {
       const dataFmt = r.data ? formatarDataBR(r.data.split('T')[0]) : '';
       const valorFmt = `R$ ${parseFloat(r.valor || 0).toFixed(2).replace('.', ',')}`;
       aoa.push([dataFmt, r.placa || '', r.dt || '', r.motorista, r.vendedor || '', r.cliente, r.nf, r.motivo, valorFmt]);
     });
 
     aoa.push(['', '', '', '', '', '', '', '', '']);
-    const totalValor = registros.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
-    aoa.push(['', '', '', '', '', '', 'TOTAL', String(registros.length), `R$ ${totalValor.toFixed(2).replace('.', ',')}`]);
+    const totalValor = lista.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+    aoa.push(['', '', '', '', '', '', 'TOTAL', String(lista.length), `R$ ${totalValor.toFixed(2).replace('.', ',')}`]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
@@ -236,10 +274,8 @@ export default function DevolucoesDia() {
     cols.forEach(c => { if (ws[`${c}1`]) ws[`${c}1`].s = estiloTitulo; });
     if (!ws['A1']) ws['A1'] = { v: 'PLANILHA DE DEVOLUCAO DIARIA CD- ITABAIANA', s: estiloTitulo };
     else ws['A1'].s = estiloTitulo;
-
     cols.forEach(c => { if (ws[`${c}2`]) ws[`${c}2`].s = estiloCabecalho; });
-
-    registros.forEach((_, i) => {
+    lista.forEach((_, i) => {
       const row = i + 3;
       const cor = i % 2 === 0 ? 'FFFFFF' : 'FFF5F5';
       cols.forEach(c => {
@@ -252,7 +288,23 @@ export default function DevolucoesDia() {
     const [ano, mes, dia] = data.split('-');
     XLSX.utils.book_append_sheet(wb, ws, `DEV ${dia}.${mes}`);
     XLSX.writeFile(wb, `DEV_${dia}-${mes}-${ano}.xlsx`);
+
+    mostrarToast(
+      `Excel exportado com ${lista.length} registro${lista.length !== 1 ? 's' : ''} | Total: ${formatarValor(totalValor)}`,
+      '#1F3864'
+    );
   }
+
+  // ─── Filtros e contadores ────────────────────────────────
+  const motoristasUnicos = [...new Set(registros.map(r => r.motorista).filter(Boolean))].sort();
+
+  const registrosFiltrados = registros
+    .filter(r => !filtroMotivo    || (r.motivo || '').toUpperCase().includes(filtroMotivo.toUpperCase()))
+    .filter(r => !filtroMotorista || r.motorista === filtroMotorista);
+
+  const totalFiltrado = registrosFiltrados.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+
+  const temFiltro = filtroMotivo || filtroMotorista;
 
   if (carregando) {
     return (
@@ -266,6 +318,8 @@ export default function DevolucoesDia() {
 
   return (
     <div className="page">
+      <Toast toast={toast} />
+
       <div className="container">
         <div className="tela-header">
           <button className="btn-voltar" onClick={() => navigate('/')}>
@@ -277,13 +331,54 @@ export default function DevolucoesDia() {
           </button>
         </div>
 
-        {registros.length === 0 ? (
+        {/* Filtros */}
+        {registros.length > 0 && (
+          <div className="filtros-barra">
+            <select
+              className="filtros-select"
+              value={filtroMotivo}
+              onChange={e => setFiltroMotivo(e.target.value)}
+            >
+              <option value="">Todos os motivos</option>
+              {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+
+            <select
+              className="filtros-select"
+              value={filtroMotorista}
+              onChange={e => setFiltroMotorista(e.target.value)}
+            >
+              <option value="">Todos os motoristas</option>
+              {motoristasUnicos.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+
+            {temFiltro && (
+              <button
+                className="btn-limpar-filtros"
+                onClick={() => { setFiltroMotivo(''); setFiltroMotorista(''); }}
+              >
+                Limpar filtros
+              </button>
+            )}
+
+            <span className="filtros-contador">
+              {registrosFiltrados.length} de {registros.length} &middot; {formatarValor(totalFiltrado)}
+            </span>
+          </div>
+        )}
+
+        {registrosFiltrados.length === 0 && registros.length > 0 ? (
+          <div className="estado-vazio">
+            <div className="estado-vazio-titulo">Nenhum registro com este filtro</div>
+            <div className="estado-vazio-sub">Ajuste ou limpe os filtros acima</div>
+          </div>
+        ) : registros.length === 0 ? (
           <div className="estado-vazio">
             <div className="estado-vazio-titulo">Nenhuma devolução neste dia</div>
             <div className="estado-vazio-sub">Clique em Novo Registro para adicionar</div>
           </div>
         ) : (
-          registros.map(r => (
+          registrosFiltrados.map(r => (
             <div key={r.id} className="card-registro">
               <div className="card-registro-linha1">
                 <span className="card-registro-cliente">{r.cliente}</span>
@@ -305,9 +400,13 @@ export default function DevolucoesDia() {
                   <span className="card-registro-info">Vendedor: {r.vendedor}</span>
                 </div>
               )}
+              {r.observacao && (
+                <div className="card-registro-obs">{r.observacao}</div>
+              )}
               <div className="card-registro-footer">
-                <button className="btn-editar" onClick={() => setEditando(r)}>Editar</button>
-                <button className="btn-excluir" onClick={() => setExcluindo(r)}>Excluir</button>
+                <button className="btn-editar"   onClick={() => setEditando(r)}>Editar</button>
+                <button className="btn-duplicar" onClick={() => duplicarRegistro(r)}>Duplicar</button>
+                <button className="btn-excluir"  onClick={() => setExcluindo(r)}>Excluir</button>
               </div>
             </div>
           ))
@@ -320,6 +419,7 @@ export default function DevolucoesDia() {
         </button>
       </div>
 
+      {/* Modal Edição */}
       {editando && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditando(null)}>
           <div className="modal">
@@ -337,6 +437,7 @@ export default function DevolucoesDia() {
         </div>
       )}
 
+      {/* Modal Exclusão */}
       {excluindo && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setExcluindo(null)}>
           <div className="modal">
