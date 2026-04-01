@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(echo \"exit: $?\")",
       "Bash(mkdir -p \"/c/Users/Diggo.Dev/Documents/grupo petropolis/gp-devolucoes/backend\")",
       "Bash(mkdir -p \"/c/Users/Diggo.Dev/Documents/grupo petropolis/gp-devolucoes/frontend/src/components\")"
     ]
