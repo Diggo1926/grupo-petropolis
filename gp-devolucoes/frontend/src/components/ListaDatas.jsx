@@ -1,89 +1,104 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 
 function formatarData(dataStr) {
-  const [ano, mes, dia] = dataStr.split('-');
-  const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
-  const diasSemana = ['Domingo', 'Segunda-feira', 'Terca-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sabado'];
-  return `${diasSemana[d.getDay()]}, ${dia}/${mes}/${ano}`;
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  const d = new Date(ano, mes - 1, dia);
+  const dias = ['Domingo', 'Segunda-feira', 'Terca-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sabado'];
+  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  return `${dias[d.getDay()]}, ${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+}
+
+function ehHoje(dataStr) {
+  const hoje = new Date();
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  return (
+    hoje.getFullYear() === ano &&
+    hoje.getMonth() + 1 === mes &&
+    hoje.getDate() === dia
+  );
 }
 
 function formatarValor(v) {
-  const n = parseFloat(v) || 0;
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function dataHoje() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dia = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${dia}`;
+  const num = parseFloat(v) || 0;
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 export default function ListaDatas() {
-  const [datas, setDatas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState('');
   const navigate = useNavigate();
-  const hoje = dataHoje();
+  const [datas, setDatas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
 
   useEffect(() => {
     fetch(`${API}/devolucoes/datas`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.erro) setErro(data.erro);
-        else setDatas(data);
+      .then(r => r.json())
+      .then(dados => {
+        setDatas(dados);
+        setCarregando(false);
       })
-      .catch(() => setErro('Nao foi possivel conectar ao servidor.'))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        setErro('Erro ao carregar dados. Verifique se o backend esta rodando.');
+        setCarregando(false);
+      });
   }, []);
 
-  return (
-    <div>
-      <div className="app-header">
-        <div>
-          <h1>GP Logistica</h1>
-          <p>Devolucoes</p>
+  if (carregando) {
+    return (
+      <div className="page">
+        <div className="container">
+          <p className="loading-texto">Carregando...</p>
         </div>
       </div>
+    );
+  }
 
-      <div className="content">
-        {erro && <div className="error-msg">{erro}</div>}
+  return (
+    <div className="page">
+      <div className="container">
+        <h1 className="page-title">Devolucoes</h1>
 
-        {loading ? (
-          <div className="loading-screen">Carregando...</div>
-        ) : datas.length === 0 ? (
-          <div className="empty-state">
-            <p style={{ fontSize: '2rem' }}>—</p>
-            <p>Nenhum registro encontrado.</p>
-            <p>Clique em "Nova Devolucao" para comecar.</p>
+        {erro && (
+          <div className="banner-erro" style={{ marginBottom: 20 }}>
+            <div className="banner-erro-titulo">{erro}</div>
+          </div>
+        )}
+
+        {!erro && datas.length === 0 ? (
+          <div className="estado-vazio">
+            <div className="estado-vazio-titulo">Nenhuma devolucao registrada</div>
+            <div className="estado-vazio-sub">Clique em Novo Registro para comecar</div>
           </div>
         ) : (
-          datas.map((item) => (
-            <div
-              key={item.data}
-              className={`card ${item.data === hoje ? 'card-hoje' : ''}`}
-              style={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/dia/${item.data}`)}
-            >
-              <div className="card-date">
-                {formatarData(item.data)}
-                {item.data === hoje && <span className="badge">Hoje</span>}
+          <div className="grid-datas">
+            {datas.map(item => (
+              <div
+                key={item.data}
+                className="card-data"
+                onClick={() => navigate(`/dia/${item.data}`)}
+              >
+                <div className="card-data-header">
+                  <span className="card-data-titulo">{formatarData(item.data)}</span>
+                  {ehHoje(item.data) && <span className="badge-hoje">HOJE</span>}
+                </div>
+                <hr className="card-data-divisor" />
+                <div className="card-data-footer">
+                  <span className="card-data-qtd">{item.quantidade} {Number(item.quantidade) === 1 ? 'registro' : 'registros'}</span>
+                  <span className="card-data-total">{formatarValor(item.total)}</span>
+                </div>
               </div>
-              <div className="card-meta">
-                <span>{item.quantidade} devolucao{item.quantidade != 1 ? 'es' : ''}</span>
-                <span className="card-total">{formatarValor(item.total)}</span>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
-      <button className="fab" onClick={() => navigate('/nova')}>
-        + Nova Devolucao
-      </button>
+      <div className="btn-fixo">
+        <button className="btn-primario" onClick={() => navigate('/nova')}>
+          + NOVO REGISTRO
+        </button>
+      </div>
     </div>
   );
 }

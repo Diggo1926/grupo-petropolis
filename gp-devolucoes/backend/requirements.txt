@@ -1,0 +1,10 @@
+flask
+flask-cors
+python-dotenv
+psycopg2-binary
+google-generativeai
+pdfplumber
+Pillow
+pytesseract
+pdf2image
+gunicorn
