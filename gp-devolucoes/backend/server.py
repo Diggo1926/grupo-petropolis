@@ -118,15 +118,13 @@ def extrair_com_ocr(caminho, ext):
             capturar = False
 
     dt = ''
-    m = re.search(r'DT\s+(\d{9,11})', texto, re.IGNORECASE)
-    if not m:
-        m = re.search(r'\b(600\d{7,9})\b', texto)
+    m = re.search(r'\b(600\d{7})\b', texto)
     if m:
         dt = m.group(1).strip()
 
     vendedor = ''
     m = re.search(
-        r'VENDEDOR\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕa-záéíóúâêîôûãõ\s]{2,40}?)(?:\n|DT|PLACA|$)',
+        r'600\d{7}\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕ\s]{3,40}?)(?:\n|CPF|CNPJ|BOLETO|BASE|$)',
         texto, re.IGNORECASE
     )
     if m:
@@ -175,20 +173,22 @@ def extrair_documento():
                 with open(caminho, 'rb') as f:
                     dados_bin = f.read()
 
-                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento e extraia os seguintes campos em JSON:
+                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento completo incluindo a seção DADOS ADICIONAIS no rodapé e extraia:
+
 {
   "cliente": "nome do destinatário no campo DENOMINAÇÃO SOCIAL",
   "nf": "número da nota fiscal no campo Nº do cabeçalho",
-  "valor": "valor total do boleto na linha Total: R$, retornar apenas números no formato 000,00 sem R$ sem ponto",
-  "dt": "código DT que aparece após o texto DT seguido de um número com 10 dígitos, exemplo: DT 6000828776",
-  "vendedor": "nome do vendedor que aparece após o texto VENDEDOR em letras maiúsculas"
+  "valor": "valor total do boleto na linha Total: R$, apenas números no formato 000,00 sem R$ sem ponto",
+  "dt": "código DT de 10 dígitos que começa com 600, aparece na seção DADOS ADICIONAIS junto com o nome do vendedor, exemplo: 6000828776",
+  "vendedor": "nome do vendedor em letras maiúsculas que aparece na seção DADOS ADICIONAIS logo após ou próximo ao código DT de 10 dígitos"
 }
 
-Exemplo de como DT e VENDEDOR aparecem no documento:
-DT  6000828776  VENDEDOR  LUIZ MARIO
+Preste atenção especial na seção DADOS ADICIONAIS e INFORMAÇÕES COMPLEMENTARES no rodapé do documento.
+O DT é sempre um número com 10 dígitos começando com 600.
+O vendedor é um nome em letras maiúsculas próximo ao DT.
 
 Se não encontrar algum campo retorne string vazia.
-Retorne SOMENTE o JSON puro sem markdown sem explicações."""
+Retorne SOMENTE o JSON puro sem markdown."""
 
                 resposta = model.generate_content([
                     {'mime_type': mime, 'data': dados_bin},
