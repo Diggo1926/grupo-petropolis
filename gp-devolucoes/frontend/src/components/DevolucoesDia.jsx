@@ -404,9 +404,8 @@ export default function DevolucoesDia() {
                 <div className="card-registro-obs">{r.observacao}</div>
               )}
               <div className="card-registro-footer">
-                <button className="btn-editar"   onClick={() => setEditando(r)}>Editar</button>
-                <button className="btn-duplicar" onClick={() => duplicarRegistro(r)}>Duplicar</button>
-                <button className="btn-excluir"  onClick={() => setExcluindo(r)}>Excluir</button>
+                <button className="btn-editar"  onClick={() => setEditando(r)}>Editar</button>
+                <button className="btn-excluir" onClick={() => setExcluindo(r)}>Excluir</button>
               </div>
             </div>
           ))
