@@ -15,7 +15,7 @@ const MOTIVOS = [
 
 function badgeMotivo(motivo) {
   const m = (motivo || '').toUpperCase();
-  if (m.includes('ENDERECO')) return 'badge-motivo badge-endereco';
+  if (m.includes('ENDERECO') || m.includes('ENDEREÇO')) return 'badge-motivo badge-endereco';
   if (m.includes('PDV')) return 'badge-motivo badge-pdv';
   if (m.includes('PAGAMENTO')) return 'badge-motivo badge-pagamento';
   if (m.includes('DUPLICIDADE')) return 'badge-motivo badge-duplicidade';
@@ -32,7 +32,7 @@ function formatarDataBR(dataStr) {
 function formatarDataExtenso(dataStr) {
   const [ano, mes, dia] = dataStr.split('-').map(Number);
   const d = new Date(ano, mes - 1, dia);
-  const dias = ['Domingo', 'Segunda-feira', 'Terca-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sabado'];
+  const dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   return `${dias[d.getDay()]}, ${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
 }
 
@@ -43,15 +43,15 @@ function formatarValor(v) {
 
 function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
   const [form, setForm] = useState({
-    data: registro.data ? registro.data.split('T')[0] : '',
-    placa: registro.placa || '',
-    dt: registro.dt || '',
+    data:      registro.data ? registro.data.split('T')[0] : '',
+    placa:     registro.placa    || '',
+    dt:        registro.dt       || '',
     motorista: registro.motorista || '',
-    vendedor: registro.vendedor || '',
-    cliente: registro.cliente || '',
-    nf: registro.nf || '',
-    motivo: registro.motivo || '',
-    valor: registro.valor ? String(parseFloat(registro.valor).toFixed(2)).replace('.', ',') : ''
+    vendedor:  registro.vendedor  || '',
+    cliente:   registro.cliente   || '',
+    nf:        registro.nf        || '',
+    motivo:    registro.motivo    || '',
+    valor:     registro.valor ? String(parseFloat(registro.valor).toFixed(2)).replace('.', ',') : ''
   });
 
   const [motivoOutros, setMotivoOutros] = useState(
@@ -94,7 +94,7 @@ function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
         <input className="form-input" type="text" value={form.motorista} onChange={e => set('motorista', e.target.value)} />
       </div>
       <div className="form-grupo">
-        <label className="form-label form-label-obrigatorio">MOTIVO DA DEVOLUCAO</label>
+        <label className="form-label form-label-obrigatorio">MOTIVO DA DEVOLUÇÃO</label>
         <select className="form-select" value={motivoSelect} onChange={e => handleMotivo(e.target.value)}>
           <option value="">Selecione o motivo...</option>
           {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
@@ -123,7 +123,7 @@ function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
       </div>
       <div className="form-grupo">
         <label className="form-label">DT</label>
-        <input className="form-input" type="number" value={form.dt} onChange={e => set('dt', e.target.value)} />
+        <input className="form-input" type="text" value={form.dt} onChange={e => set('dt', e.target.value)} />
       </div>
       <div className="form-grupo">
         <label className="form-label">VENDEDOR</label>
@@ -135,12 +135,8 @@ function FormEdicao({ registro, onSalvar, onCancelar, salvando }) {
       </div>
       <div className="modal-botoes">
         <button className="btn-cancelar" onClick={onCancelar}>Cancelar</button>
-        <button
-          className="btn-salvar"
-          disabled={salvando}
-          onClick={() => onSalvar(form)}
-        >
-          {salvando ? 'Salvando...' : 'Salvar alteracoes'}
+        <button className="btn-salvar" disabled={salvando} onClick={() => onSalvar(form)}>
+          {salvando ? 'Salvando...' : 'Salvar alterações'}
         </button>
       </div>
     </div>
@@ -160,7 +156,7 @@ export default function DevolucoesDia() {
     fetch(`${API}/devolucoes?data=${data}`)
       .then(r => r.json())
       .then(dados => {
-        setRegistros(dados);
+        setRegistros(Array.isArray(dados) ? dados : []);
         setCarregando(false);
       })
       .catch(() => setCarregando(false));
@@ -203,12 +199,9 @@ export default function DevolucoesDia() {
 
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
-
     const aoa = [];
 
-    // Linha 1: título mesclado
     aoa.push(['PLANILHA DE DEVOLUCAO DIARIA CD- ITABAIANA', '', '', '', '', '', '', '', '']);
-    // Linha 2: cabeçalhos
     aoa.push(['DATA', 'PLACA', 'DT', 'MOTORISTA', 'VENDEDOR', 'CLIENTE', 'NF', 'MOTIVO DA DEVOLUCAO', 'VALOR']);
 
     registros.forEach(r => {
@@ -217,26 +210,17 @@ export default function DevolucoesDia() {
       aoa.push([dataFmt, r.placa || '', r.dt || '', r.motorista, r.vendedor || '', r.cliente, r.nf, r.motivo, valorFmt]);
     });
 
-    // Linha em branco
     aoa.push(['', '', '', '', '', '', '', '', '']);
-
-    // Total
     const totalValor = registros.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
-    const totalFmt = `R$ ${totalValor.toFixed(2).replace('.', ',')}`;
-    aoa.push(['', '', '', '', '', '', 'TOTAL', String(registros.length), totalFmt]);
+    aoa.push(['', '', '', '', '', '', 'TOTAL', String(registros.length), `R$ ${totalValor.toFixed(2).replace('.', ',')}`]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    // Mesclar A1:I1
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
-
-    // Larguras das colunas
     ws['!cols'] = [
-      { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 20 }, { wch: 20 },
+      { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 },
       { wch: 35 }, { wch: 12 }, { wch: 25 }, { wch: 14 }
     ];
 
-    // Estilos
     const estiloTitulo = {
       font: { bold: true, color: { rgb: 'FFFFFF' } },
       fill: { fgColor: { rgb: 'CC0000' } },
@@ -247,28 +231,14 @@ export default function DevolucoesDia() {
       fill: { fgColor: { rgb: '1A1A1A' } },
       alignment: { horizontal: 'center' }
     };
-    const estiloTotal = {
-      font: { bold: true },
-      fill: { fgColor: { rgb: 'F3F4F6' } }
-    };
 
     const cols = ['A','B','C','D','E','F','G','H','I'];
-
-    // Aplicar estilo no título
-    cols.forEach(c => {
-      const cell = ws[`${c}1`];
-      if (cell) cell.s = estiloTitulo;
-    });
+    cols.forEach(c => { if (ws[`${c}1`]) ws[`${c}1`].s = estiloTitulo; });
     if (!ws['A1']) ws['A1'] = { v: 'PLANILHA DE DEVOLUCAO DIARIA CD- ITABAIANA', s: estiloTitulo };
     else ws['A1'].s = estiloTitulo;
 
-    // Cabeçalhos
-    cols.forEach(c => {
-      const cell = ws[`${c}2`];
-      if (cell) cell.s = estiloCabecalho;
-    });
+    cols.forEach(c => { if (ws[`${c}2`]) ws[`${c}2`].s = estiloCabecalho; });
 
-    // Linhas de dados com cores alternadas
     registros.forEach((_, i) => {
       const row = i + 3;
       const cor = i % 2 === 0 ? 'FFFFFF' : 'FFF5F5';
@@ -279,21 +249,9 @@ export default function DevolucoesDia() {
       });
     });
 
-    // Total
-    const totalRow = registros.length + 4;
-    cols.forEach(c => {
-      const ref = `${c}${totalRow}`;
-      if (!ws[ref]) ws[ref] = { v: '' };
-      ws[ref].s = estiloTotal;
-    });
-
-    // Nome da aba
     const [ano, mes, dia] = data.split('-');
-    const nomeAba = `DEV ${dia}.${mes}`;
-    const nomeArquivo = `DEV_${dia}-${mes}-${ano}.xlsx`;
-
-    XLSX.utils.book_append_sheet(wb, ws, nomeAba);
-    XLSX.writeFile(wb, nomeArquivo);
+    XLSX.utils.book_append_sheet(wb, ws, `DEV ${dia}.${mes}`);
+    XLSX.writeFile(wb, `DEV_${dia}-${mes}-${ano}.xlsx`);
   }
 
   if (carregando) {
@@ -321,7 +279,7 @@ export default function DevolucoesDia() {
 
         {registros.length === 0 ? (
           <div className="estado-vazio">
-            <div className="estado-vazio-titulo">Nenhuma devolucao neste dia</div>
+            <div className="estado-vazio-titulo">Nenhuma devolução neste dia</div>
             <div className="estado-vazio-sub">Clique em Novo Registro para adicionar</div>
           </div>
         ) : (
@@ -337,12 +295,16 @@ export default function DevolucoesDia() {
               </div>
               <div className="card-registro-linha3">
                 <span className="card-registro-valor">{formatarValor(r.valor)}</span>
-                <span className="card-registro-data">{formatarDataBR(r.data ? r.data.split('T')[0] : '')}</span>
+                <div className="card-registro-meta">
+                  {r.placa && <span className="card-registro-info">Placa: {r.placa}</span>}
+                  {r.dt    && <span className="card-registro-info">DT: {r.dt}</span>}
+                </div>
               </div>
-              <div className="card-registro-linha4">
-                {r.placa && <span className="card-registro-info" style={{ fontSize: 12 }}>Placa: {r.placa}</span>}
-                {r.dt && <span className="card-registro-info" style={{ fontSize: 12 }}>DT: {r.dt}</span>}
-              </div>
+              {r.vendedor && (
+                <div className="card-registro-linha4">
+                  <span className="card-registro-info">Vendedor: {r.vendedor}</span>
+                </div>
+              )}
               <div className="card-registro-footer">
                 <button className="btn-editar" onClick={() => setEditando(r)}>Editar</button>
                 <button className="btn-excluir" onClick={() => setExcluindo(r)}>Excluir</button>
@@ -358,11 +320,13 @@ export default function DevolucoesDia() {
         </button>
       </div>
 
-      {/* Modal Edição */}
       {editando && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditando(null)}>
           <div className="modal">
-            <div className="modal-titulo">Editar Devolucao</div>
+            <div className="modal-header">
+              <span className="modal-titulo">Editar Devolução</span>
+              <button className="modal-fechar" onClick={() => setEditando(null)}>&#10005;</button>
+            </div>
             <FormEdicao
               registro={editando}
               onSalvar={salvarEdicao}
@@ -373,13 +337,17 @@ export default function DevolucoesDia() {
         </div>
       )}
 
-      {/* Modal Exclusão */}
       {excluindo && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setExcluindo(null)}>
           <div className="modal">
-            <div className="modal-titulo">Excluir Devolucao</div>
-            <p style={{ fontSize: 15, marginBottom: 6 }}>Tem certeza que deseja excluir?</p>
-            <p className="modal-aviso">Esta acao nao pode ser desfeita.</p>
+            <div className="modal-header">
+              <span className="modal-titulo">Excluir Devolução</span>
+              <button className="modal-fechar" onClick={() => setExcluindo(null)}>&#10005;</button>
+            </div>
+            <p style={{ fontFamily: 'Barlow, sans-serif', fontSize: 15, marginBottom: 6 }}>
+              Tem certeza que deseja excluir este registro?
+            </p>
+            <p className="modal-aviso">Esta ação não pode ser desfeita.</p>
             <div className="modal-botoes">
               <button className="btn-cancelar" onClick={() => setExcluindo(null)}>Cancelar</button>
               <button className="btn-excluir-confirmar" disabled={salvando} onClick={confirmarExclusao}>

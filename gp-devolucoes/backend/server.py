@@ -117,7 +117,22 @@ def extrair_com_ocr(caminho, ext):
                 break
             capturar = False
 
-    return {'cliente': cliente, 'nf': nf, 'valor': valor, '_metodo': 'ocr'}
+    dt = ''
+    m = re.search(r'DT\s+(\d{9,11})', texto, re.IGNORECASE)
+    if not m:
+        m = re.search(r'\b(600\d{7,9})\b', texto)
+    if m:
+        dt = m.group(1).strip()
+
+    vendedor = ''
+    m = re.search(
+        r'VENDEDOR\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕa-záéíóúâêîôûãõ\s]{2,40}?)(?:\n|DT|PLACA|$)',
+        texto, re.IGNORECASE
+    )
+    if m:
+        vendedor = m.group(1).strip()
+
+    return {'cliente': cliente, 'nf': nf, 'valor': valor, 'vendedor': vendedor, 'dt': dt, '_metodo': 'ocr'}
 
 # ─── Rotas ───────────────────────────────────────────────────────────────────
 
@@ -160,18 +175,20 @@ def extrair_documento():
                 with open(caminho, 'rb') as f:
                     dados_bin = f.read()
 
-                prompt = (
-                    "Voce e um assistente de extracao de dados de Notas Fiscais do "
-                    "Grupo Petropolis. Analise este documento e extraia em JSON:\n"
-                    "{\n"
-                    "  cliente: nome do destinatario (campo DENOMINACAO SOCIAL),\n"
-                    "  nf: numero da nota fiscal (campo No no cabecalho, ex: 000191237),\n"
-                    "  valor: valor do boleto (linha Total: R$, retornar apenas numeros "
-                    "no formato 000,00 sem R$ sem ponto de milhar)\n"
-                    "}\n"
-                    "Se nao encontrar retorne string vazia.\n"
-                    "Retorne SOMENTE o JSON puro sem markdown sem explicacoes."
-                )
+                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento e extraia os seguintes campos em JSON:
+{
+  "cliente": "nome do destinatário no campo DENOMINAÇÃO SOCIAL",
+  "nf": "número da nota fiscal no campo Nº do cabeçalho",
+  "valor": "valor total do boleto na linha Total: R$, retornar apenas números no formato 000,00 sem R$ sem ponto",
+  "dt": "código DT que aparece após o texto DT seguido de um número com 10 dígitos, exemplo: DT 6000828776",
+  "vendedor": "nome do vendedor que aparece após o texto VENDEDOR em letras maiúsculas"
+}
+
+Exemplo de como DT e VENDEDOR aparecem no documento:
+DT  6000828776  VENDEDOR  LUIZ MARIO
+
+Se não encontrar algum campo retorne string vazia.
+Retorne SOMENTE o JSON puro sem markdown sem explicações."""
 
                 resposta = model.generate_content([
                     {'mime_type': mime, 'data': dados_bin},
@@ -185,10 +202,12 @@ def extrair_documento():
 
                 dados = json.loads(texto)
                 return jsonify({
-                    'cliente': dados.get('cliente', ''),
-                    'nf':      dados.get('nf', ''),
-                    'valor':   dados.get('valor', ''),
-                    '_metodo': 'gemini'
+                    'cliente':  dados.get('cliente', ''),
+                    'nf':       dados.get('nf', ''),
+                    'valor':    dados.get('valor', ''),
+                    'vendedor': dados.get('vendedor', ''),
+                    'dt':       dados.get('dt', ''),
+                    '_metodo':  'gemini'
                 })
             except Exception as e:
                 print(f'Gemini falhou, usando fallback OCR: {e}')

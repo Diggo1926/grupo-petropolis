@@ -1,0 +1,22 @@
+{
+  "name": "GP Devoluções",
+  "short_name": "GP Dev",
+  "description": "Sistema de devoluções CD Itabaiana",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#CC0000",
+  "theme_color": "#CC0000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo_gp.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo_gp.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

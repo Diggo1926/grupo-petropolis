@@ -15,7 +15,7 @@ const MOTIVOS = [
 const MENSAGENS_LOADING = [
   'Enviando documento...',
   'Analisando com IA...',
-  'Extraindo informacoes...',
+  'Extraindo informações...',
   'Quase pronto...'
 ];
 
@@ -23,10 +23,7 @@ const ehMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 function hojeISO() {
   const d = new Date();
-  const ano = d.getFullYear();
-  const mes = String(d.getMonth() + 1).padStart(2, '0');
-  const dia = String(d.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatarTamanho(bytes) {
@@ -35,7 +32,6 @@ function formatarTamanho(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-
 export default function NovaDevolucao() {
   const navigate = useNavigate();
 
@@ -43,7 +39,7 @@ export default function NovaDevolucao() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [lendo, setLendo] = useState(false);
   const [msgIdx, setMsgIdx] = useState(0);
-  const [extraido, setExtraido] = useState({ cliente: false, nf: false, valor: false });
+  const [extraido, setExtraido] = useState({ cliente: false, nf: false, valor: false, vendedor: false, dt: false });
   const [dragover, setDragover] = useState(false);
 
   const [form, setForm] = useState({
@@ -66,7 +62,6 @@ export default function NovaDevolucao() {
   const inputArquivoRef = useRef();
   const inputDesktopRef = useRef();
 
-  // Mensagens rotativas durante leitura
   useEffect(() => {
     if (!lendo) return;
     setMsgIdx(0);
@@ -117,14 +112,18 @@ export default function NovaDevolucao() {
 
       setForm(f => ({
         ...f,
-        cliente: dados.cliente || f.cliente,
-        nf: dados.nf || f.nf,
-        valor: dados.valor || f.valor
+        cliente:  dados.cliente  || f.cliente,
+        nf:       dados.nf       || f.nf,
+        valor:    dados.valor    || f.valor,
+        vendedor: dados.vendedor || f.vendedor,
+        dt:       dados.dt       || f.dt
       }));
       setExtraido({
-        cliente: !!dados.cliente,
-        nf: !!dados.nf,
-        valor: !!dados.valor
+        cliente:  !!dados.cliente,
+        nf:       !!dados.nf,
+        valor:    !!dados.valor,
+        vendedor: !!dados.vendedor,
+        dt:       !!dados.dt
       });
     } catch (err) {
       alert('Erro ao processar documento: ' + err.message);
@@ -134,20 +133,20 @@ export default function NovaDevolucao() {
   }
 
   function validar() {
-    const errosEncontrados = [];
-    if (!form.motorista.trim()) errosEncontrados.push('Motorista');
-    if (!form.motivo) errosEncontrados.push('Motivo da Devolucao');
-    if (form.motivo === 'OUTROS' && !form.motivoOutros.trim()) errosEncontrados.push('Descricao do motivo');
-    if (!form.cliente.trim()) errosEncontrados.push('Cliente');
-    if (!form.nf.trim()) errosEncontrados.push('NF');
-    if (!form.data) errosEncontrados.push('Data da Devolucao');
-    return errosEncontrados;
+    const lista = [];
+    if (!form.motorista.trim()) lista.push('Motorista');
+    if (!form.motivo) lista.push('Motivo da Devolução');
+    if (form.motivo === 'OUTROS' && !form.motivoOutros.trim()) lista.push('Descrição do motivo');
+    if (!form.cliente.trim()) lista.push('Cliente');
+    if (!form.nf.trim()) lista.push('NF');
+    if (!form.data) lista.push('Data da Devolução');
+    return lista;
   }
 
   async function salvar() {
-    const errosEncontrados = validar();
-    if (errosEncontrados.length > 0) {
-      setErros(errosEncontrados);
+    const lista = validar();
+    if (lista.length > 0) {
+      setErros(lista);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -155,21 +154,20 @@ export default function NovaDevolucao() {
     setSalvando(true);
     try {
       const motivo = form.motivo === 'OUTROS' ? (form.motivoOutros || 'OUTROS') : form.motivo;
-      const body = {
-        data: form.data,
-        placa: form.placa,
-        dt: form.dt,
-        motorista: form.motorista,
-        vendedor: form.vendedor,
-        cliente: form.cliente,
-        nf: form.nf,
-        motivo,
-        valor: form.valor
-      };
       const resp = await fetch(`${API}/devolucoes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          data: form.data,
+          placa: form.placa,
+          dt: form.dt,
+          motorista: form.motorista,
+          vendedor: form.vendedor,
+          cliente: form.cliente,
+          nf: form.nf,
+          motivo,
+          valor: form.valor
+        })
       });
       const salvo = await resp.json();
       if (salvo.erro) {
@@ -198,7 +196,7 @@ export default function NovaDevolucao() {
 
         {erros.length > 0 && (
           <div className="banner-erro">
-            <div className="banner-erro-titulo">Preencha os campos obrigatorios:</div>
+            <div className="banner-erro-titulo">Preencha os campos obrigatórios:</div>
             <ul>
               {erros.map(e => <li key={e}>{e}</li>)}
             </ul>
@@ -212,16 +210,10 @@ export default function NovaDevolucao() {
 
             {ehMobile ? (
               <div className="upload-botoes-mobile">
-                <button
-                  className="btn-upload"
-                  onClick={() => inputCameraRef.current.click()}
-                >
-                  ABRIR CAMERA
+                <button className="btn-upload" onClick={() => inputCameraRef.current.click()}>
+                  ABRIR CÂMERA
                 </button>
-                <button
-                  className="btn-upload"
-                  onClick={() => inputArquivoRef.current.click()}
-                >
+                <button className="btn-upload" onClick={() => inputArquivoRef.current.click()}>
                   ESCOLHER ARQUIVO
                 </button>
                 <input
@@ -249,13 +241,9 @@ export default function NovaDevolucao() {
                   onDrop={handleDrop}
                   onClick={() => inputDesktopRef.current.click()}
                 >
-                  <div style={{ fontSize: 32, color: 'var(--cor-borda)' }}>&#128196;</div>
-                  <div className="upload-texto">
-                    Arraste um arquivo ou clique para selecionar
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--cor-texto-suave)', marginTop: 4 }}>
-                    JPEG, PNG, WEBP, HEIC, PDF
-                  </div>
+                  <div className="upload-icone">[NF]</div>
+                  <div className="upload-texto">Arraste um arquivo ou clique para selecionar</div>
+                  <div className="upload-formatos">JPEG, PNG, WEBP, HEIC, PDF</div>
                 </div>
                 <input
                   ref={inputDesktopRef}
@@ -272,13 +260,7 @@ export default function NovaDevolucao() {
                 {previewUrl ? (
                   <img src={previewUrl} alt="preview" />
                 ) : (
-                  <div style={{
-                    width: 48, height: 48, background: '#F3F4F6', borderRadius: 4,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20
-                  }}>
-                    &#128196;
-                  </div>
+                  <div className="arquivo-preview-pdf">PDF</div>
                 )}
                 <div className="arquivo-info">
                   <div className="arquivo-nome">{arquivo.name}</div>
@@ -288,39 +270,26 @@ export default function NovaDevolucao() {
             )}
 
             {arquivo && (
-              <button
-                className="btn-ler"
-                onClick={lerDocumento}
-                disabled={lendo}
-              >
+              <button className="btn-ler" onClick={lerDocumento} disabled={lendo}>
                 {lendo && <div className="btn-ler-barra" />}
                 {lendo ? MENSAGENS_LOADING[msgIdx] : 'LER DOCUMENTO'}
               </button>
             )}
           </div>
 
-          {/* COLUNA DIREITA — DADOS DA ENTREGA */}
+          {/* COLUNA DIREITA — DADOS */}
           <div>
             <div className="coluna-titulo">Dados da Entrega</div>
             <div className="form-grid">
 
               <div className="form-grupo">
                 <label className="form-label form-label-obrigatorio">MOTORISTA</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={form.motorista}
-                  onChange={e => set('motorista', e.target.value)}
-                />
+                <input className="form-input" type="text" value={form.motorista} onChange={e => set('motorista', e.target.value)} />
               </div>
 
               <div className="form-grupo">
-                <label className="form-label form-label-obrigatorio">MOTIVO DA DEVOLUCAO</label>
-                <select
-                  className="form-select"
-                  value={form.motivo}
-                  onChange={e => set('motivo', e.target.value)}
-                >
+                <label className="form-label form-label-obrigatorio">MOTIVO DA DEVOLUÇÃO</label>
+                <select className="form-select" value={form.motivo} onChange={e => set('motivo', e.target.value)}>
                   <option value="">Selecione o motivo...</option>
                   {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
@@ -337,92 +306,52 @@ export default function NovaDevolucao() {
 
               <div className="form-grupo">
                 <label className="form-label">PLACA</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={form.placa}
-                  onChange={e => set('placa', e.target.value)}
-                />
+                <input className="form-input" type="text" value={form.placa} onChange={e => set('placa', e.target.value)} />
               </div>
 
               <div className="form-grupo">
                 <label className="form-label">DT</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  value={form.dt}
-                  onChange={e => set('dt', e.target.value)}
-                />
+                <input className="form-input" type="text" value={form.dt} onChange={e => set('dt', e.target.value)} />
+                {extraido.dt && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>
 
               <div className="form-grupo">
                 <label className="form-label">VENDEDOR</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={form.vendedor}
-                  onChange={e => set('vendedor', e.target.value)}
-                />
+                <input className="form-input" type="text" value={form.vendedor} onChange={e => set('vendedor', e.target.value)} />
+                {extraido.vendedor && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>
 
               <div className="form-grupo">
-                <label className="form-label form-label-obrigatorio">DATA DA DEVOLUCAO</label>
-                <input
-                  className="form-input"
-                  type="date"
-                  value={form.data}
-                  onChange={e => set('data', e.target.value)}
-                />
+                <label className="form-label form-label-obrigatorio">DATA DA DEVOLUÇÃO</label>
+                <input className="form-input" type="date" value={form.data} onChange={e => set('data', e.target.value)} />
               </div>
 
               <div className="form-grupo">
                 <label className="form-label form-label-obrigatorio">CLIENTE</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={form.cliente}
-                  onChange={e => set('cliente', e.target.value)}
-                />
-                {extraido.cliente && (
-                  <span className="badge-extraido">Extraido automaticamente</span>
-                )}
+                <input className="form-input" type="text" value={form.cliente} onChange={e => set('cliente', e.target.value)} />
+                {extraido.cliente && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>
 
               <div className="form-grupo">
                 <label className="form-label form-label-obrigatorio">NF</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={form.nf}
-                  onChange={e => set('nf', e.target.value)}
-                />
-                {extraido.nf && (
-                  <span className="badge-extraido">Extraido automaticamente</span>
-                )}
+                <input className="form-input" type="text" value={form.nf} onChange={e => set('nf', e.target.value)} />
+                {extraido.nf && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>
 
               <div className="form-grupo">
                 <label className="form-label">VALOR</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="0,00"
-                  value={form.valor}
-                  onChange={e => set('valor', e.target.value)}
-                />
-                {extraido.valor && (
-                  <span className="badge-extraido">Extraido automaticamente</span>
-                )}
+                <input className="form-input" type="text" placeholder="0,00" value={form.valor} onChange={e => set('valor', e.target.value)} />
+                {extraido.valor && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>
 
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 32 }}>
+        <div style={{ marginTop: 32, paddingBottom: 20 }}>
           <button
             className="btn-primario"
-            style={{ maxWidth: '100%' }}
+            style={{ borderRadius: 8, height: 52 }}
             onClick={salvar}
             disabled={salvando}
           >
