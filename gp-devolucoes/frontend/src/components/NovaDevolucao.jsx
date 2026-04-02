@@ -247,6 +247,12 @@ export default function NovaDevolucao() {
     return lista;
   }
 
+  function vibrar() {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]);
+    }
+  }
+
   async function salvar() {
     const lista = validar();
     if (lista.length > 0) {
@@ -288,6 +294,7 @@ export default function NovaDevolucao() {
         return;
       }
 
+      vibrar();
       mostrarToast('Registro salvo com sucesso!');
       setTimeout(() => navigate(`/dia/${form.data}`), 1500);
     } catch (err) {
@@ -568,7 +575,7 @@ export default function NovaDevolucao() {
           {limpo && <div className="msg-limpo">Campos limpos</div>}
           <button
             className="btn-primario"
-            style={{ borderRadius: 8, height: 52 }}
+            style={{ borderRadius: 8 }}
             onClick={salvar}
             disabled={salvando}
           >

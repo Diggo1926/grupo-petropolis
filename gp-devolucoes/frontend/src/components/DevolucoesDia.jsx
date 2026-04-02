@@ -271,6 +271,8 @@ export default function DevolucoesDia() {
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+    ws['!autofilter'] = { ref: 'A2:I2' };
+    ws['!freeze'] = { xSplit: 0, ySplit: 2 };
     ws['!cols'] = [
       { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 },
       { wch: 35 }, { wch: 12 }, { wch: 25 }, { wch: 14 }
