@@ -161,9 +161,26 @@ export default function DevolucoesDia() {
   const [excluindo, setExcluindo] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
-  const [filtroMotivo, setFiltroMotivo] = useState('');
+  const [filtroDt, setFiltroDt] = useState('');
+  const [filtroPlaca, setFiltroPlaca] = useState('');
   const [filtroMotorista, setFiltroMotorista] = useState('');
+  const [filtroVendedor, setFiltroVendedor] = useState('');
+  const [filtroClienteInput, setFiltroClienteInput] = useState('');
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroNfInput, setFiltroNfInput] = useState('');
+  const [filtroNf, setFiltroNf] = useState('');
+  const [filtroMotivo, setFiltroMotivo] = useState('');
   const [toast, setToast] = useState({ visivel: false, mensagem: '', cor: '' });
+
+  useEffect(() => {
+    const t = setTimeout(() => setFiltroCliente(filtroClienteInput), 300);
+    return () => clearTimeout(t);
+  }, [filtroClienteInput]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setFiltroNf(filtroNfInput), 300);
+    return () => clearTimeout(t);
+  }, [filtroNfInput]);
 
   useEffect(() => {
     fetch(`${API}/devolucoes?data=${data}`)
@@ -296,15 +313,36 @@ export default function DevolucoesDia() {
   }
 
   // ─── Filtros e contadores ────────────────────────────────
+  const dtsUnicos       = [...new Set(registros.map(r => r.dt).filter(Boolean))].sort();
+  const placasUnicas    = [...new Set(registros.map(r => r.placa).filter(Boolean))].sort();
   const motoristasUnicos = [...new Set(registros.map(r => r.motorista).filter(Boolean))].sort();
+  const vendedoresUnicos = [...new Set(registros.map(r => r.vendedor).filter(Boolean))].sort();
 
   const registrosFiltrados = registros
-    .filter(r => !filtroMotivo    || (r.motivo || '').toUpperCase().includes(filtroMotivo.toUpperCase()))
-    .filter(r => !filtroMotorista || r.motorista === filtroMotorista);
+    .filter(r => !filtroDt        || r.dt === filtroDt)
+    .filter(r => !filtroPlaca     || r.placa === filtroPlaca)
+    .filter(r => !filtroMotorista || r.motorista === filtroMotorista)
+    .filter(r => !filtroVendedor  || r.vendedor === filtroVendedor)
+    .filter(r => !filtroCliente   || (r.cliente || '').toUpperCase().includes(filtroCliente.toUpperCase()))
+    .filter(r => !filtroNf        || (r.nf || '').includes(filtroNf))
+    .filter(r => !filtroMotivo    || (r.motivo || '').toUpperCase().includes(filtroMotivo.toUpperCase()));
 
   const totalFiltrado = registrosFiltrados.reduce((s, r) => s + parseFloat(r.valor || 0), 0);
 
-  const temFiltro = filtroMotivo || filtroMotorista;
+  const temFiltro = filtroDt || filtroPlaca || filtroMotorista || filtroVendedor ||
+                    filtroClienteInput || filtroNfInput || filtroMotivo;
+
+  function limparFiltros() {
+    setFiltroDt('');
+    setFiltroPlaca('');
+    setFiltroMotorista('');
+    setFiltroVendedor('');
+    setFiltroClienteInput('');
+    setFiltroCliente('');
+    setFiltroNfInput('');
+    setFiltroNf('');
+    setFiltroMotivo('');
+  }
 
   if (carregando) {
     return (
@@ -322,7 +360,7 @@ export default function DevolucoesDia() {
 
       <div className="container">
         <div className="tela-header">
-          <button className="btn-voltar" onClick={() => navigate('/')}>
+          <button className="btn-voltar" onClick={() => navigate(`/mes/${data.substring(0, 7)}`)}>
             &#8592; Voltar
           </button>
           <span className="tela-header-titulo">{formatarDataExtenso(data)}</span>
@@ -333,38 +371,62 @@ export default function DevolucoesDia() {
 
         {/* Filtros */}
         {registros.length > 0 && (
-          <div className="filtros-barra">
-            <select
-              className="filtros-select"
-              value={filtroMotivo}
-              onChange={e => setFiltroMotivo(e.target.value)}
-            >
-              <option value="">Todos os motivos</option>
-              {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-
-            <select
-              className="filtros-select"
-              value={filtroMotorista}
-              onChange={e => setFiltroMotorista(e.target.value)}
-            >
-              <option value="">Todos os motoristas</option>
-              {motoristasUnicos.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-
-            {temFiltro && (
-              <button
-                className="btn-limpar-filtros"
-                onClick={() => { setFiltroMotivo(''); setFiltroMotorista(''); }}
-              >
-                Limpar filtros
-              </button>
-            )}
-
-            <span className="filtros-contador">
-              {registrosFiltrados.length} de {registros.length} &middot; {formatarValor(totalFiltrado)}
-            </span>
-          </div>
+          <>
+            <div className="filtros-barra" style={{ flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 4 }}>
+              {dtsUnicos.length > 0 && (
+                <select className="filtros-select" style={{ minWidth: 100 }} value={filtroDt} onChange={e => setFiltroDt(e.target.value)}>
+                  <option value="">DT</option>
+                  {dtsUnicos.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              )}
+              {placasUnicas.length > 0 && (
+                <select className="filtros-select" style={{ minWidth: 110 }} value={filtroPlaca} onChange={e => setFiltroPlaca(e.target.value)}>
+                  <option value="">Placa</option>
+                  {placasUnicas.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              )}
+              <select className="filtros-select" style={{ minWidth: 140 }} value={filtroMotorista} onChange={e => setFiltroMotorista(e.target.value)}>
+                <option value="">Motorista</option>
+                {motoristasUnicos.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              {vendedoresUnicos.length > 0 && (
+                <select className="filtros-select" style={{ minWidth: 140 }} value={filtroVendedor} onChange={e => setFiltroVendedor(e.target.value)}>
+                  <option value="">Vendedor</option>
+                  {vendedoresUnicos.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              )}
+              <input
+                className="filtros-select"
+                style={{ minWidth: 130 }}
+                type="text"
+                placeholder="Cliente..."
+                value={filtroClienteInput}
+                onChange={e => setFiltroClienteInput(e.target.value)}
+              />
+              <input
+                className="filtros-select"
+                style={{ minWidth: 100 }}
+                type="text"
+                placeholder="NF..."
+                value={filtroNfInput}
+                onChange={e => setFiltroNfInput(e.target.value)}
+              />
+              <select className="filtros-select" style={{ minWidth: 140 }} value={filtroMotivo} onChange={e => setFiltroMotivo(e.target.value)}>
+                <option value="">Motivo</option>
+                {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span className="filtros-contador">
+                Mostrando {registrosFiltrados.length} de {registros.length} &middot; {formatarValor(totalFiltrado)}
+              </span>
+              {temFiltro && (
+                <button className="btn-limpar-filtros" onClick={limparFiltros}>
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         {registrosFiltrados.length === 0 && registros.length > 0 ? (

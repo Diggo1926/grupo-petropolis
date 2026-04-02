@@ -121,13 +121,15 @@ def extrair_com_ocr(caminho, ext):
             capturar = False
 
     dt = ''
-    m = re.search(r'\b(600\d{7})\b', texto)
+    m = re.search(r'Doc\.?Transporte[:\s]+(\d{7,12})', texto, re.IGNORECASE)
+    if not m:
+        m = re.search(r'\b(600\d{7,9})\b', texto)
     if m:
         dt = m.group(1).strip()
 
     vendedor = ''
     m = re.search(
-        r'600\d{7}\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕ\s]{3,40}?)(?:\n|CPF|CNPJ|BOLETO|BASE|$)',
+        r'Vendedor[:\s]+\d+\s*-\s*([A-ZÁÉÍÓÚÂÊÎÔÛÃÕ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕa-záéíóúâêîôûãõ\s]{2,50}?)(?:\n|Nosso|Pedido|$)',
         texto, re.IGNORECASE
     )
     if m:
@@ -175,19 +177,19 @@ def extrair_documento():
                 with open(caminho, 'rb') as f:
                     dados_bin = f.read()
 
-                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento completo incluindo a seção DADOS ADICIONAIS no rodapé e extraia:
+                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento com atenção especial à seção DADOS ADICIONAIS no rodapé e extraia os seguintes campos em JSON:
 
 {
-  "cliente": "nome do destinatário no campo DENOMINAÇÃO SOCIAL",
-  "nf": "número da nota fiscal no campo Nº do cabeçalho",
-  "valor": "valor total do boleto na linha Total: R$, apenas números no formato 000,00 sem R$ sem ponto",
-  "dt": "código DT de 10 dígitos que começa com 600, aparece na seção DADOS ADICIONAIS junto com o nome do vendedor, exemplo: 6000828776",
-  "vendedor": "nome do vendedor em letras maiúsculas que aparece na seção DADOS ADICIONAIS logo após ou próximo ao código DT de 10 dígitos"
+  "cliente": "nome completo no campo NOME/RAZÃO SOCIAL da seção DESTINATÁRIO/REMETENTE",
+  "nf": "número da nota fiscal no campo Nº do cabeçalho, apenas os dígitos ex: 000388011",
+  "valor": "valor total na linha Total: R$, apenas números no formato 000,00 sem R$ sem ponto de milhar",
+  "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS após o texto 'Doc.Transporte:', exemplo: Doc.Transporte: 6000876356",
+  "vendedor": "nome do vendedor que aparece nos DADOS ADICIONAIS após o traço no campo Vendedor, exemplo: Vendedor: 00246840 - RONALDO SANTOS, extrair apenas RONALDO SANTOS"
 }
 
-Preste atenção especial na seção DADOS ADICIONAIS e INFORMAÇÕES COMPLEMENTARES no rodapé do documento.
-O DT é sempre um número com 10 dígitos começando com 600.
-O vendedor é um nome em letras maiúsculas próximo ao DT.
+Exemplos reais de como esses campos aparecem no documento:
+  Remessa: 8202847009 Doc.Transporte: 6000876356
+  Cliente: 0210491177 / Vendedor: 00246840 - RONALDO SANTOS
 
 Se não encontrar algum campo retorne string vazia.
 Retorne SOMENTE o JSON puro sem markdown."""
@@ -244,6 +246,69 @@ def listar_datas():
                         'quantidade': row[1],
                         'total':      float(row[2]) if row[2] is not None else 0.0
                     })
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/devolucoes/meses')
+def listar_meses():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT TO_CHAR(data, 'YYYY-MM') AS mes,
+                              COUNT(*) AS quantidade,
+                              SUM(valor) AS total
+                       FROM devolucoes
+                       GROUP BY mes
+                       ORDER BY mes DESC"""
+                )
+                rows = cur.fetchall()
+                resultado = [
+                    {'mes': row[0], 'quantidade': row[1], 'total': float(row[2]) if row[2] is not None else 0.0}
+                    for row in rows
+                ]
+
+        from datetime import date
+        mes_atual = date.today().strftime('%Y-%m')
+        if not any(r['mes'] == mes_atual for r in resultado):
+            resultado.insert(0, {'mes': mes_atual, 'quantidade': 0, 'total': 0.0})
+
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/devolucoes/dias')
+def listar_dias():
+    mes = request.args.get('mes', '')
+    if not mes:
+        return jsonify({'erro': 'Parâmetro mes obrigatório.'}), 400
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT data::text AS data,
+                              COUNT(*) AS quantidade,
+                              SUM(valor) AS total
+                       FROM devolucoes
+                       WHERE TO_CHAR(data, 'YYYY-MM') = %s
+                       GROUP BY data
+                       ORDER BY data DESC""",
+                    (mes,)
+                )
+                rows = cur.fetchall()
+                resultado = [
+                    {'data': row[0], 'quantidade': row[1], 'total': float(row[2]) if row[2] is not None else 0.0}
+                    for row in rows
+                ]
+
+        from datetime import date
+        hoje = date.today().isoformat()
+        if hoje.startswith(mes) and not any(r['data'] == hoje for r in resultado):
+            resultado.insert(0, {'data': hoje, 'quantidade': 0, 'total': 0.0})
+
         return jsonify(resultado)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
