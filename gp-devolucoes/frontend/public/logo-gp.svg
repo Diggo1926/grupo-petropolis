@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#CC0000"/>
+
+  <!-- Letra G -->
+  <path d="
+    M 80 256
+    A 120 120 0 1 1 256 376
+    L 256 320
+    A 64 64 0 1 0 144 256
+    L 200 256
+    L 200 300
+    L 80 300
+    Z
+  " fill="white"/>
+
+  <!-- Barra horizontal do G -->
+  <rect x="200" y="256" width="80" height="44" fill="white"/>
+
+  <!-- Letra P — haste vertical -->
+  <rect x="280" y="136" width="44" height="240" rx="6" fill="white"/>
+
+  <!-- Letra P — topo -->
+  <rect x="280" y="136" width="100" height="44" rx="6" fill="white"/>
+
+  <!-- Letra P — meio -->
+  <rect x="280" y="224" width="100" height="44" rx="6" fill="white"/>
+
+  <!-- Letra P — curva direita -->
+  <rect x="336" y="136" width="44" height="132" rx="22" fill="white"/>
+</svg>

@@ -26,11 +26,15 @@ function Header({ dark, onToggleDark }) {
           <span className="header-titulo">GP DEVOLUÇÕES</span>
           <span className="header-sub">CD ITABAIANA</span>
         </div>
-        <button
-          className={`btn-tema ${dark ? 'btn-tema-sol' : 'btn-tema-lua'}`}
-          onClick={onToggleDark}
-          title={dark ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
-        />
+        <label className="theme-switch" htmlFor="theme-toggle" title="Alternar tema">
+          <input
+            type="checkbox"
+            id="theme-toggle"
+            checked={dark}
+            onChange={onToggleDark}
+          />
+          <span className="theme-slider" />
+        </label>
       </div>
     </header>
   );
@@ -39,8 +43,7 @@ function Header({ dark, onToggleDark }) {
 export default function App() {
   const [dark, setDark] = useState(() => {
     const salvo = localStorage.getItem('gp-theme');
-    if (salvo) return salvo === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return salvo ? salvo === 'dark' : false;
   });
 
   useEffect(() => {
