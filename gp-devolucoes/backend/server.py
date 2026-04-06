@@ -182,22 +182,22 @@ def extrair_documento():
 {
   "cliente": "nome completo no campo NOME/RAZÃO SOCIAL da seção DESTINATÁRIO/REMETENTE",
   "nf": "número da nota fiscal no campo Nº do cabeçalho, apenas os dígitos ex: 000388011",
-  "valor": "valor total na linha Total: R$, apenas números no formato 000,00 sem R$ sem ponto de milhar",
-  "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS após o texto 'Doc.Transporte:', exemplo: Doc.Transporte: 6000876356",
-  "vendedor": "nome do vendedor que aparece nos DADOS ADICIONAIS após o traço no campo Vendedor, exemplo: Vendedor: 00246840 - RONALDO SANTOS, extrair apenas RONALDO SANTOS"
+  "valor": "valor total da nota fiscal, campo V.TOTAL NOTA ou VALOR TOTAL, apenas números no formato 000.00 sem R$ sem ponto de milhar",
+  "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após o texto Doc.Transporte: exemplo: Doc.Transporte: 6000876356",
+  "vendedor": "nome do vendedor que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após Vendedor:, exemplo: Vendedor: 00246840 - RONALDO SANTOS, extrair apenas RONALDO SANTOS sem o código numérico"
 }
 
 Exemplos reais de como esses campos aparecem no documento:
   Remessa: 8202847009 Doc.Transporte: 6000876356
   Cliente: 0210491177 / Vendedor: 00246840 - RONALDO SANTOS
 
-Se não encontrar algum campo retorne string vazia.
-Retorne SOMENTE o JSON puro sem markdown."""
-
-                resposta = model.generate_content([
-                    {'mime_type': mime, 'data': dados_bin},
-                    prompt
-                ])
+INSTRUÇÕES IMPORTANTES:
+- O campo vendedor quase sempre está nas INFORMAÇÕES COMPLEMENTARES ou DADOS ADICIONAIS no rodapé da nota, não no cabeçalho. Leia o rodapé com atenção.
+- O campo valor corresponde ao V.TOTAL NOTA que aparece no canto direito da seção de cálculo de impostos.
+- O campo dt é o número após Doc.Transporte: nos dados adicionais, nunca o número da NF.
+- A imagem pode estar levemente inclinada ou com baixa qualidade. Faça o melhor esforço para ler todos os campos.
+- Se não encontrar algum campo retorne string vazia.
+- Retorne SOMENTE o JSON puro sem markdown sem texto adicional.
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
