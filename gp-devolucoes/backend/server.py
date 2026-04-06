@@ -214,7 +214,9 @@ INSTRUÇÕES IMPORTANTES:
                     '_metodo':  'gemini'
                 })
             except Exception as e:
-                print(f'Gemini falhou, usando fallback OCR: {e}')
+              print(f'Gemini falhou: {e}')
+print(f'Texto recebido do Gemini: {texto}')
+
 
         resultado = extrair_com_ocr(caminho, ext)
         return jsonify(resultado)
