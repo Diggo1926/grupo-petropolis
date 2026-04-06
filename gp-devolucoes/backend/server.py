@@ -180,7 +180,7 @@ def extrair_documento():
                 prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento com atenção especial à seção DADOS ADICIONAIS no rodapé e extraia os seguintes campos em JSON:
 
 {
-  "cliente": "nome completo no campo NOME/RAZÃO SOCIAL da seção DESTINATÁRIO/REMETENTE",
+  "cliente": "nome completo no campo NOME/RAZÃO SOCIAL que aparece logo abaixo do título DESTINATÁRIO/REMETENTE. Atenção: ignorar completamente o nome CERVEJARIA PETROPOLIS DA BAHIA LTDA pois este é o emitente. O cliente é sempre o destinatário listado abaixo da seção DESTINATÁRIO/REMETENTE",
   "nf": "número da nota fiscal no campo Nº do cabeçalho, apenas os dígitos ex: 000388011",
   "valor": "valor total da nota fiscal, campo V.TOTAL NOTA ou VALOR TOTAL, apenas números no formato 000.00 sem R$ sem ponto de milhar",
   "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após o texto Doc.Transporte: exemplo: Doc.Transporte: 6000876356",
