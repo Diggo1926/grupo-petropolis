@@ -198,6 +198,7 @@ INSTRUÇÕES IMPORTANTES:
 - A imagem pode estar levemente inclinada ou com baixa qualidade. Faça o melhor esforço para ler todos os campos.
 - Se não encontrar algum campo retorne string vazia.
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional.
+"""
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
