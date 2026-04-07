@@ -153,8 +153,7 @@ def preprocessar_imagem(caminho):
 
         # 2. Correção de inclinação com Canny + HoughLinesP
         bordas = cv2.Canny(cinza, 50, 150, apertureSize=3)
-        linhas = cv2.HoughLinesP(bordas, 1, np.pi / 180, threshold=100,
-                                  minLineLength=100, maxLineGap=10)
+        linhas = cv2.HoughLinesP(bordas, 1, np.pi / 180, threshold=100,minLineLength=100, maxLineGap=10)
         angulo = 0.0
         if linhas is not None:
             angulos = []
@@ -232,7 +231,12 @@ def extrair_documento():
         arquivo.save(caminho)
 
         if ext in {'.png', '.jpg', '.jpeg', '.webp', '.heic'}:
-            caminho_processado = preprocessar_imagem(caminho)
+            try:
+                caminho_processado = preprocessar_imagem(caminho)
+                print(f'Pré-processamento concluído: {caminho_processado}')
+            except Exception as ep:
+                print(f'Pré-processamento falhou: {ep}')
+                caminho_processado = caminho
 
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
