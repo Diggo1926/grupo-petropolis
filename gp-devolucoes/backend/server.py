@@ -218,10 +218,6 @@ def health():
 
 @app.route('/extrair-documento', methods=['POST'])
 def extrair_documento():
-    modelos = client.models.list()
-    for m in modelos:
-        print(f'Modelo disponível: {m.name}')
-
     if 'arquivo' not in request.files:
         return jsonify({'erro': 'Campo "arquivo" nao encontrado.'}), 400
 
@@ -247,6 +243,10 @@ def extrair_documento():
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
                 client = genai.Client(api_key=GEMINI_API_KEY)
+
+                modelos = client.models.list()
+                for m in modelos:
+                    print(f'Modelo disponível: {m.name}')
 
                 mime = MIME_MAP.get(ext, 'application/octet-stream')
                 with open(caminho_processado, 'rb') as f:
