@@ -7,6 +7,8 @@ import psycopg2.extras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -240,8 +242,6 @@ def extrair_documento():
 
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
-                from google import genai
-                from google.genai import types
                 client = genai.Client(api_key=GEMINI_API_KEY)
 
                 mime = MIME_MAP.get(ext, 'application/octet-stream')
