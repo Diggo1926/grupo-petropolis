@@ -297,7 +297,7 @@ INSTRUÇÕES CRÍTICAS:
 
                 print(f'Enviando imagem para o Gemini: {caminho}')
                 resposta = client.models.generate_content(
-                    model='gemini-2.5-flash-preview-04-17',
+                    model='models/gemini-2.5-flash',
                     contents=[
                         types.Part.from_bytes(data=dados_bin, mime_type=mime),
                         prompt
