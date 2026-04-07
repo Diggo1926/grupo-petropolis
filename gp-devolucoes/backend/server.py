@@ -236,9 +236,9 @@ def extrair_documento():
 
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-2.0-flash-lite')
+                from google import genai
+                from google.genai import types
+                client = genai.Client(api_key=GEMINI_API_KEY)
 
                 mime = MIME_MAP.get(ext, 'application/octet-stream')
                 with open(caminho_processado, 'rb') as f:
@@ -269,10 +269,13 @@ INSTRUÇÕES CRÍTICAS:
 - Se não encontrar um campo retorne string vazia
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
-                resposta = model.generate_content([
-                    {'mime_type': mime, 'data': dados_bin},
-                    prompt
-                ])
+                resposta = client.models.generate_content(
+                    model='gemini-2.0-flash-lite',
+                    contents=[
+                        types.Part.from_bytes(data=dados_bin, mime_type=mime),
+                        prompt
+                    ]
+                )
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
