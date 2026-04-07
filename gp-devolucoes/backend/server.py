@@ -21,7 +21,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
-client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+try:
+    client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+    print(f'Gemini client inicializado: {client is not None}')
+except Exception as _e:
+    print(f'Erro ao inicializar Gemini client: {_e}')
+    client = None
 
 EXTENSOES_GEMINI = {'.pdf', '.png', '.jpg', '.jpeg', '.webp', '.heic'}
 
@@ -207,6 +212,8 @@ def preprocessar_imagem(caminho):
 
 @app.route('/modelos')
 def listar_modelos():
+    if not client:
+        return jsonify({'erro': 'Gemini client nao inicializado. Verifique GEMINI_API_KEY.'}), 500
     try:
         resultado = []
         for m in client.models.list():
