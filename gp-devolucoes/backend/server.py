@@ -21,6 +21,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
 EXTENSOES_GEMINI = {'.pdf', '.png', '.jpg', '.jpeg', '.webp', '.heic'}
 
 MIME_MAP = {
@@ -253,8 +255,6 @@ def extrair_documento():
 
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
-                client = genai.Client(api_key=GEMINI_API_KEY)
-
                 modelos = client.models.list()
                 for m in modelos:
                     print(f'Modelo disponível: {m.name}')
