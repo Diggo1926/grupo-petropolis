@@ -203,6 +203,17 @@ def preprocessar_imagem(caminho):
 
 # ─── Rotas ───────────────────────────────────────────────────────────────────
 
+@app.route('/modelos')
+def listar_modelos():
+    try:
+        resultado = []
+        for m in client.models.list():
+            resultado.append(m.name)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
 @app.route('/health')
 def health():
     banco = False
