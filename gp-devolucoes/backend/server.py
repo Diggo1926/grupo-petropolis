@@ -218,6 +218,10 @@ def health():
 
 @app.route('/extrair-documento', methods=['POST'])
 def extrair_documento():
+    modelos = client.models.list()
+    for m in modelos:
+        print(f'Modelo disponível: {m.name}')
+
     if 'arquivo' not in request.files:
         return jsonify({'erro': 'Campo "arquivo" nao encontrado.'}), 400
 
