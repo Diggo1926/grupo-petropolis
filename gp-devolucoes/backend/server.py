@@ -137,6 +137,69 @@ def extrair_com_ocr(caminho, ext):
 
     return {'cliente': cliente, 'nf': nf, 'valor': valor, 'vendedor': vendedor, 'dt': dt, '_metodo': 'ocr'}
 
+# ─── Pré-processamento de imagem ─────────────────────────────────────────────
+
+def preprocessar_imagem(caminho):
+    try:
+        import cv2
+        import numpy as np
+
+        img = cv2.imread(caminho)
+        if img is None:
+            return caminho
+
+        # 1. Escala de cinza
+        cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 2. Correção de inclinação com Canny + HoughLinesP
+        bordas = cv2.Canny(cinza, 50, 150, apertureSize=3)
+        linhas = cv2.HoughLinesP(bordas, 1, np.pi / 180, threshold=100,
+                                  minLineLength=100, maxLineGap=10)
+        angulo = 0.0
+        if linhas is not None:
+            angulos = []
+            for linha in linhas:
+                x1, y1, x2, y2 = linha[0]
+                if x2 != x1:
+                    angulos.append(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
+            if angulos:
+                angulo = float(np.median(angulos))
+                if abs(angulo) > 45:
+                    angulo = angulo - 90 if angulo > 0 else angulo + 90
+
+        if abs(angulo) > 0.5:
+            h, w = cinza.shape
+            centro = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(centro, angulo, 1.0)
+            cinza = cv2.warpAffine(cinza, M, (w, h),
+                                    flags=cv2.INTER_CUBIC,
+                                    borderMode=cv2.BORDER_REPLICATE)
+
+        # 3. Aumento de contraste
+        cinza = cv2.convertScaleAbs(cinza, alpha=1.5, beta=20)
+
+        # 4. Limiarização adaptativa
+        cinza = cv2.adaptiveThreshold(
+            cinza, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            11, 2
+        )
+
+        # 5. Desfoque gaussiano leve para reduzir ruído
+        cinza = cv2.GaussianBlur(cinza, (1, 1), 0)
+
+        base, ext = os.path.splitext(caminho)
+        caminho_processado = base + '_processed' + ext
+        cv2.imwrite(caminho_processado, cinza)
+        print(f'Imagem pré-processada salva em: {caminho_processado}')
+        return caminho_processado
+
+    except Exception as e:
+        print(f'Pré-processamento falhou, usando imagem original: {e}')
+        return caminho
+
+
 # ─── Rotas ───────────────────────────────────────────────────────────────────
 
 @app.route('/health')
@@ -163,42 +226,53 @@ def extrair_documento():
 
     fd, caminho = tempfile.mkstemp(suffix=ext, dir=UPLOAD_DIR)
     os.close(fd)
+    caminho_processado = caminho
 
     try:
         arquivo.save(caminho)
+
+        if ext in {'.png', '.jpg', '.jpeg', '.webp', '.heic'}:
+            caminho_processado = preprocessar_imagem(caminho)
 
         if GEMINI_API_KEY and ext in EXTENSOES_GEMINI:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
                 mime = MIME_MAP.get(ext, 'application/octet-stream')
-                with open(caminho, 'rb') as f:
+                with open(caminho_processado, 'rb') as f:
                     dados_bin = f.read()
 
-                prompt = """Você é um assistente de extração de dados de Notas Fiscais do Grupo Petrópolis. Analise este documento com atenção especial à seção DADOS ADICIONAIS no rodapé e extraia os seguintes campos em JSON:
+                prompt = """Você é um especialista em leitura de notas fiscais brasileiras DANFE.
+Analise a imagem com máxima atenção mesmo que esteja inclinada, com
+sombra, reflexo ou baixa resolução. A nota fiscal DANFE sempre segue
+o mesmo layout padrão independente da qualidade da foto.
+
+Extraia exatamente os seguintes campos e retorne APENAS um JSON puro
+sem markdown sem texto adicional sem explicações:
 
 {
-  "cliente": "nome completo no campo NOME/RAZÃO SOCIAL que aparece logo abaixo do título DESTINATÁRIO/REMETENTE. Atenção: ignorar completamente o nome CERVEJARIA PETROPOLIS DA BAHIA LTDA pois este é o emitente. O cliente é sempre o destinatário listado abaixo da seção DESTINATÁRIO/REMETENTE",
-  "nf": "número da nota fiscal no campo Nº do cabeçalho, apenas os dígitos ex: 000388011",
-  "valor": "valor total da nota fiscal, campo V.TOTAL NOTA ou VALOR TOTAL, apenas números no formato 000.00 sem R$ sem ponto de milhar",
-  "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após o texto Doc.Transporte: exemplo: Doc.Transporte: 6000876356",
-  "vendedor": "nome do vendedor que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após Vendedor:, exemplo: Vendedor: 00246840 - RONALDO SANTOS, extrair apenas RONALDO SANTOS sem o código numérico"
+  "cliente": "nome completo no campo NOME/RAZÃO SOCIAL que aparece logo abaixo do título DESTINATÁRIO/REMETENTE no terço superior da nota. ATENÇÃO: ignorar completamente CERVEJARIA PETROPOLIS DA BAHIA LTDA pois este é o emitente e nunca é o cliente. O cliente é sempre o destinatário, exemplos de clientes: AMANDA INACIO DOS SANTOS, JOSE DIAS DA PAIXAO, JOYCE ALINE NASCIMENTO",
+  "nf": "número da nota fiscal no campo Nº do cabeçalho, apenas os dígitos sem pontos, exemplo: 000388011",
+  "valor": "valor total da nota no campo V.TOTAL NOTA ou Total: R$, apenas números com vírgula, exemplo: 140,80",
+  "dt": "número do Doc.Transporte que aparece nos DADOS ADICIONAIS ou INFORMAÇÕES COMPLEMENTARES após o texto Doc.Transporte:, exemplo: se aparecer Doc.Transporte: 6000876356 retornar 6000876356",
+  "vendedor": "nome do vendedor que aparece nos DADOS ADICIONAIS após Vendedor: seguido de código numérico e traço, exemplo: se aparecer Vendedor: 00246840 - RONALDO SANTOS retornar apenas RONALDO SANTOS sem o código"
 }
 
-Exemplos reais de como esses campos aparecem no documento:
-  Remessa: 8202847009 Doc.Transporte: 6000876356
-  Cliente: 0210491177 / Vendedor: 00246840 - RONALDO SANTOS
+INSTRUÇÕES CRÍTICAS:
+- O campo cliente está sempre no terço superior da nota abaixo de DESTINATÁRIO/REMETENTE
+- O campo dt está sempre no rodapé nos DADOS ADICIONAIS após Doc.Transporte:
+- O campo vendedor está sempre no rodapé nos DADOS ADICIONAIS após Vendedor:
+- O campo valor é sempre o último valor à direita na seção CÁLCULO DO IMPOSTO
+- Nunca retorne CERVEJARIA PETROPOLIS como cliente
+- Se não encontrar um campo retorne string vazia
+- Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
-INSTRUÇÕES IMPORTANTES:
-- O campo vendedor quase sempre está nas INFORMAÇÕES COMPLEMENTARES ou DADOS ADICIONAIS no rodapé da nota, não no cabeçalho. Leia o rodapé com atenção.
-- O campo valor corresponde ao V.TOTAL NOTA que aparece no canto direito da seção de cálculo de impostos.
-- O campo dt é o número após Doc.Transporte: nos dados adicionais, nunca o número da NF.
-- A imagem pode estar levemente inclinada ou com baixa qualidade. Faça o melhor esforço para ler todos os campos.
-- Se não encontrar algum campo retorne string vazia.
-- Retorne SOMENTE o JSON puro sem markdown sem texto adicional.
-"""
+                resposta = model.generate_content([
+                    {'mime_type': mime, 'data': dados_bin},
+                    prompt
+                ])
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
@@ -214,9 +288,11 @@ INSTRUÇÕES IMPORTANTES:
                     '_metodo':  'gemini'
                 })
             except Exception as e:
-              print(f'Gemini falhou: {e}')
-print(f'Texto recebido do Gemini: {texto}')
-
+                print(f'Gemini falhou: {e}')
+                try:
+                    print(f'Texto recebido do Gemini: {texto}')
+                except:
+                    print('Variavel texto nao definida')
 
         resultado = extrair_com_ocr(caminho, ext)
         return jsonify(resultado)
@@ -226,6 +302,11 @@ print(f'Texto recebido do Gemini: {texto}')
     finally:
         try:
             os.remove(caminho)
+        except Exception:
+            pass
+        try:
+            if caminho_processado != caminho:
+                os.remove(caminho_processado)
         except Exception:
             pass
 

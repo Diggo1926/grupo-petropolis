@@ -8,3 +8,5 @@ Pillow
 pytesseract
 pdf2image
 gunicorn
+opencv-python-headless
+numpy
