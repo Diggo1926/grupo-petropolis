@@ -269,6 +269,7 @@ INSTRUÇÕES CRÍTICAS:
 - Se não encontrar um campo retorne string vazia
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
+                print(f'Enviando imagem para o Gemini: {caminho}')
                 resposta = client.models.generate_content(
                     model='gemini-2.0-flash-lite',
                     contents=[
@@ -276,10 +277,12 @@ INSTRUÇÕES CRÍTICAS:
                         prompt
                     ]
                 )
+                print(f'Retorno bruto do Gemini: {resposta.text}')
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
                 texto = re.sub(r'\n?```$', '', texto)
+                print(f'Texto limpo: {texto}')
 
                 dados = json.loads(texto)
                 return jsonify({
@@ -291,11 +294,11 @@ INSTRUÇÕES CRÍTICAS:
                     '_metodo':  'gemini'
                 })
             except Exception as e:
-                print(f'Gemini falhou: {e}')
+                print(f'Erro no Gemini: {type(e).__name__}: {e}')
                 try:
-                    print(f'Texto recebido do Gemini: {texto}')
+                    print(f'Texto no momento do erro: {texto}')
                 except:
-                    print('Variavel texto nao definida')
+                    print('Variavel texto nao definida no momento do erro')
 
         resultado = extrair_com_ocr(caminho, ext)
         return jsonify(resultado)
