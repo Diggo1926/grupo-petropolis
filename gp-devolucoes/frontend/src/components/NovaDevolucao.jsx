@@ -242,9 +242,14 @@ export default function NovaDevolucao() {
     const lista = [];
     if (!form.motorista.trim()) lista.push('Motorista');
     if (!form.motivo.trim()) lista.push('Motivo da Devolução');
+    if (!form.placa.trim()) lista.push('Placa');
+    if (!form.dt.trim()) lista.push('DT');
+    if (!form.vendedor.trim()) lista.push('Vendedor');
     if (!form.cliente.trim()) lista.push('Cliente');
     if (!form.nf.trim()) lista.push('NF');
     if (!form.data) lista.push('Data da Devolução');
+    const valorNum = parseFloat(String(form.valor).replace(',', '.'));
+    if (!form.valor || isNaN(valorNum) || valorNum <= 0) lista.push('Valor');
     return lista;
   }
 
