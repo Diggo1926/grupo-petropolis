@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 import tempfile
 import psycopg2
 import psycopg2.extras
@@ -296,13 +297,23 @@ INSTRUÇÕES CRÍTICAS:
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
                 print(f'Enviando imagem para o Gemini: {caminho}')
-                resposta = client.models.generate_content(
-                    model='models/gemini-2.5-flash',
-                    contents=[
-                        types.Part.from_bytes(data=dados_bin, mime_type=mime),
-                        prompt
-                    ]
-                )
+                max_tentativas = 3
+                for tentativa in range(max_tentativas):
+                    try:
+                        resposta = client.models.generate_content(
+                            model='models/gemini-2.5-flash',
+                            contents=[
+                                types.Part.from_bytes(data=dados_bin, mime_type=mime),
+                                prompt
+                            ]
+                        )
+                        break
+                    except Exception as e:
+                        if '503' in str(e) and tentativa < max_tentativas - 1:
+                            print(f'Gemini 503, tentativa {tentativa + 1} de {max_tentativas}. Aguardando 3s...')
+                            time.sleep(3)
+                        else:
+                            raise e
                 print(f'Retorno bruto do Gemini: {resposta.text}')
                 texto = resposta.text.strip()
 
