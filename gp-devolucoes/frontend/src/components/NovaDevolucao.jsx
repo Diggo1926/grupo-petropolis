@@ -3,14 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL;
 
-const MOTIVOS = [
-  'ENDEREÇO ERRADO',
-  'PDV FECHADO',
-  'FALTA DE PAGAMENTO',
-  'DUPLICIDADE',
-  'RECUSA',
-  'OUTROS'
-];
+const MOTIVOS = ['Ausente', 'Desistência', 'Outros'];
 
 const MENSAGENS_LOADING = [
   'Enviando documento...',
@@ -107,7 +100,7 @@ export default function NovaDevolucao() {
         valor:       prefill.valor ? String(parseFloat(prefill.valor).toFixed(2)).replace('.', ',') : '',
         observacao:  prefill.observacao || ''
       });
-      if (prefill.motivo) setMotivoSelect(MOTIVOS.includes(prefill.motivo) ? prefill.motivo : 'OUTROS');
+      if (prefill.motivo) setMotivoSelect(MOTIVOS.includes(prefill.motivo) ? prefill.motivo : 'Outros');
     }
   }, []);
 
@@ -132,10 +125,9 @@ export default function NovaDevolucao() {
 
   function handleMotivoSelect(val) {
     setMotivoSelect(val);
-    if (val && val !== 'OUTROS') {
+    if (val && val !== 'Outros') {
       set('motivo', val);
-    } else if (val === 'OUTROS') {
-      // Keep whatever the user typed or reset
+    } else if (val === 'Outros') {
       if (!form.motivo || MOTIVOS.includes(form.motivo)) {
         set('motivo', '');
       }
@@ -274,7 +266,7 @@ export default function NovaDevolucao() {
           motorista:  form.motorista,
           vendedor:   form.vendedor,
           cliente:    form.cliente,
-          nf:         form.nf,
+          nf:         form.nf.replace(/^0+/, ''),
           motivo:     form.motivo,
           valor:      form.valor,
           observacao: form.observacao
@@ -451,19 +443,18 @@ export default function NovaDevolucao() {
                   value={motivoSelect}
                   onChange={e => handleMotivoSelect(e.target.value)}
                 >
-                  <option value="">Selecione ou escreva o motivo...</option>
+                  <option value="">Selecione o motivo...</option>
                   {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <textarea
-                  className="form-textarea"
-                  style={{ marginTop: 8, minHeight: 80 }}
-                  placeholder="Descreva o motivo ou complemento..."
-                  value={form.motivo}
-                  onChange={e => {
-                    set('motivo', e.target.value);
-                    setMotivoSelect('');
-                  }}
-                />
+                {motivoSelect === 'Outros' && (
+                  <textarea
+                    className="form-textarea"
+                    style={{ marginTop: 8, minHeight: 80 }}
+                    placeholder="Descreva o motivo..."
+                    value={form.motivo}
+                    onChange={e => set('motivo', e.target.value)}
+                  />
+                )}
               </div>
 
               <div className="form-grupo">
@@ -547,7 +538,7 @@ export default function NovaDevolucao() {
                   className="form-input"
                   type="text"
                   value={form.nf}
-                  onChange={e => { set('nf', e.target.value); setErroDuplicada(''); }}
+                  onChange={e => { set('nf', e.target.value.replace(/^0+/, '')); setErroDuplicada(''); }}
                 />
                 {extraido.nf && <span className="badge-extraido">Extraído automaticamente</span>}
               </div>

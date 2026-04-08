@@ -324,7 +324,7 @@ INSTRUÇÕES CRÍTICAS:
                 dados = json.loads(texto)
                 return jsonify({
                     'cliente':  dados.get('cliente', ''),
-                    'nf':       dados.get('nf', ''),
+                    'nf':       str(dados.get('nf', '')).lstrip('0'),
                     'valor':    dados.get('valor', ''),
                     'vendedor': dados.get('vendedor', ''),
                     'dt':       dados.get('dt', ''),
