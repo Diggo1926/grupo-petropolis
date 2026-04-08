@@ -3,7 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL;
 
-const MOTIVOS = ['Ausente', 'Desistência', 'Outros'];
+const MOTIVOS = [
+  'Ausente',
+  'Desistência',
+  'Endereço Errado',
+  'Recusa de Recebimento',
+  'PDV Fechado',
+  'Falta de Pagamento',
+  'Duplicidade',
+  'Outros'
+];
 
 const MENSAGENS_LOADING = [
   'Enviando documento...',
