@@ -150,63 +150,7 @@ def extrair_com_ocr(caminho, ext):
 # ─── Pré-processamento de imagem ─────────────────────────────────────────────
 
 def preprocessar_imagem(caminho):
-    try:
-        import cv2
-        import numpy as np
-
-        img = cv2.imread(caminho)
-        if img is None:
-            return caminho
-
-        # 1. Escala de cinza
-        cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # 2. Correção de inclinação com Canny + HoughLinesP
-        bordas = cv2.Canny(cinza, 50, 150, apertureSize=3)
-        linhas = cv2.HoughLinesP(bordas, 1, np.pi / 180, threshold=100,minLineLength=100, maxLineGap=10)
-        angulo = 0.0
-        if linhas is not None:
-            angulos = []
-            for linha in linhas:
-                x1, y1, x2, y2 = linha[0]
-                if x2 != x1:
-                    angulos.append(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
-            if angulos:
-                angulo = float(np.median(angulos))
-                if abs(angulo) > 45:
-                    angulo = angulo - 90 if angulo > 0 else angulo + 90
-
-        if abs(angulo) > 0.5:
-            h, w = cinza.shape
-            centro = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(centro, angulo, 1.0)
-            cinza = cv2.warpAffine(cinza, M, (w, h),
-                                    flags=cv2.INTER_CUBIC,
-                                    borderMode=cv2.BORDER_REPLICATE)
-
-        # 3. Aumento de contraste
-        cinza = cv2.convertScaleAbs(cinza, alpha=1.5, beta=20)
-
-        # 4. Limiarização adaptativa
-        cinza = cv2.adaptiveThreshold(
-            cinza, 255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            11, 2
-        )
-
-        # 5. Desfoque gaussiano leve para reduzir ruído
-        cinza = cv2.GaussianBlur(cinza, (1, 1), 0)
-
-        base, ext = os.path.splitext(caminho)
-        caminho_processado = base + '_processed' + ext
-        cv2.imwrite(caminho_processado, cinza)
-        print(f'Imagem pré-processada salva em: {caminho_processado}')
-        return caminho_processado
-
-    except Exception as e:
-        print(f'Pré-processamento falhou, usando imagem original: {e}')
-        return caminho
+    return caminho
 
 
 # ─── Rotas ───────────────────────────────────────────────────────────────────
