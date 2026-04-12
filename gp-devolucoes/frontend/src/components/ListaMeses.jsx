@@ -98,8 +98,19 @@ export default function ListaMeses() {
         )}
       </div>
 
-      <div className="btn-fixo">
-        <button className="btn-primario" onClick={() => navigate('/nova')}>
+      <div className="btn-fixo" style={{ display: 'flex', gap: 10 }}>
+        <button
+          className="btn-primario"
+          style={{ flex: 1, background: '#CC0000', borderColor: '#CC0000' }}
+          onClick={() => navigate('/ranking')}
+        >
+          🏆 RANKING
+        </button>
+        <button
+          className="btn-primario"
+          style={{ flex: 2 }}
+          onClick={() => navigate('/nova')}
+        >
           + NOVO REGISTRO
         </button>
       </div>

@@ -582,6 +582,54 @@ def deletar_devolucao(id):
         return jsonify({'erro': str(e)}), 500
 
 
+@app.route('/ranking')
+def ranking():
+    periodo = request.args.get('periodo', 'semana')
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                if periodo == 'semana':
+                    filtro = """
+                        DATE_TRUNC('week', data::timestamp) =
+                        DATE_TRUNC('week', CURRENT_DATE)
+                    """
+                elif periodo == 'mes':
+                    filtro = """
+                        DATE_TRUNC('month', data::timestamp) =
+                        DATE_TRUNC('month', CURRENT_DATE)
+                    """
+                elif periodo == 'ano':
+                    filtro = """
+                        DATE_TRUNC('year', data::timestamp) =
+                        DATE_TRUNC('year', CURRENT_DATE)
+                    """
+                else:
+                    filtro = "1=1"
+
+                cur.execute(f"""
+                    SELECT
+                        motorista,
+                        COUNT(*) as total_devolucoes,
+                        COALESCE(SUM(valor), 0) as valor_total
+                    FROM devolucoes
+                    WHERE {filtro}
+                    GROUP BY motorista
+                    ORDER BY total_devolucoes ASC, valor_total ASC
+                """)
+                rows = cur.fetchall()
+                resultado = []
+                for i, row in enumerate(rows):
+                    resultado.append({
+                        'posicao': i + 1,
+                        'motorista': row[0],
+                        'total_devolucoes': int(row[1]),
+                        'valor_total': float(row[2])
+                    })
+                return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
