@@ -4,7 +4,6 @@ import ListaMeses from './components/ListaMeses.jsx';
 import ListaDias from './components/ListaDias.jsx';
 import DevolucoesDia from './components/DevolucoesDia.jsx';
 import NovaDevolucao from './components/NovaDevolucao.jsx';
-import Ranking from './components/Ranking.jsx';
 
 function Header({ dark, onToggleDark }) {
   const [logoErro, setLogoErro] = useState(false);
@@ -60,7 +59,6 @@ export default function App() {
         <Route path="/mes/:mes" element={<ListaDias />} />
         <Route path="/dia/:data" element={<DevolucoesDia />} />
         <Route path="/nova" element={<NovaDevolucao />} />
-        <Route path="/ranking" element={<Ranking />} />
       </Routes>
     </>
   );
