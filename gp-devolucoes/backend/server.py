@@ -241,11 +241,14 @@ INSTRUÇÕES CRÍTICAS:
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
                 print(f'Enviando imagem para o Gemini: {caminho}')
-                max_tentativas = 3
+                modelos_fallback = ['models/gemini-2.0-flash', 'models/gemini-1.5-flash']
+                max_tentativas = 5
+                espera = 5
+                modelo_atual = 'models/gemini-2.5-flash'
                 for tentativa in range(max_tentativas):
                     try:
                         resposta = client.models.generate_content(
-                            model='models/gemini-2.5-flash',
+                            model=modelo_atual,
                             contents=[
                                 types.Part.from_bytes(data=dados_bin, mime_type=mime),
                                 prompt
@@ -253,9 +256,15 @@ INSTRUÇÕES CRÍTICAS:
                         )
                         break
                     except Exception as e:
-                        if '503' in str(e) and tentativa < max_tentativas - 1:
-                            print(f'Gemini 503, tentativa {tentativa + 1} de {max_tentativas}. Aguardando 3s...')
-                            time.sleep(3)
+                        erro_str = str(e)
+                        is_unavailable = '503' in erro_str or 'UNAVAILABLE' in erro_str or 'alta demanda' in erro_str
+                        if is_unavailable and tentativa < max_tentativas - 1:
+                            print(f'Gemini indisponivel (tentativa {tentativa + 1}/{max_tentativas}), modelo={modelo_atual}. Aguardando {espera}s...')
+                            time.sleep(espera)
+                            espera = min(espera * 2, 30)
+                            if tentativa >= 2 and modelos_fallback:
+                                modelo_atual = modelos_fallback.pop(0)
+                                print(f'Trocando para modelo fallback: {modelo_atual}')
                         else:
                             raise e
                 print(f'Retorno bruto do Gemini: {resposta.text}')
