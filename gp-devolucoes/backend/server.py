@@ -253,10 +253,10 @@ INSTRUÇÕES CRÍTICAS:
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
                 print(f'Enviando imagem para o Gemini: {caminho}')
-                modelos_fallback = ['models/gemini-2.0-flash-001', 'models/gemini-1.5-flash']
+                modelos_fallback = ['models/gemini-2.5-flash-lite', 'models/gemini-2.0-flash-001']
                 max_tentativas = 5
                 espera = 5
-                modelo_atual = 'models/gemini-2.0-flash'
+                modelo_atual = 'models/gemini-2.5-flash'
                 for tentativa in range(max_tentativas):
                     try:
                         resposta = client.models.generate_content(
