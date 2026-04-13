@@ -8,5 +8,6 @@ Pillow
 pytesseract
 pdf2image
 gunicorn
+flask-limiter==3.5.0
 opencv-python-headless
 numpy

@@ -7,6 +7,8 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -14,7 +16,16 @@ from google.genai import types
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    'https://grupo-petropolis.vercel.app',
+    'http://localhost:5173'
+])
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=['200 per day', '60 per hour'],
+    storage_uri='memory://'
+)
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -182,6 +193,7 @@ def health():
 
 
 @app.route('/extrair-documento', methods=['POST'])
+@limiter.limit('30 per minute')
 def extrair_documento():
     if 'arquivo' not in request.files:
         return jsonify({'erro': 'Campo "arquivo" nao encontrado.'}), 400
@@ -241,10 +253,10 @@ INSTRUÇÕES CRÍTICAS:
 - Retorne SOMENTE o JSON puro sem markdown sem texto adicional"""
 
                 print(f'Enviando imagem para o Gemini: {caminho}')
-                modelos_fallback = ['models/gemini-2.0-flash', 'models/gemini-1.5-flash']
+                modelos_fallback = ['models/gemini-2.0-flash-001', 'models/gemini-1.5-flash']
                 max_tentativas = 5
                 espera = 5
-                modelo_atual = 'models/gemini-2.5-flash'
+                modelo_atual = 'models/gemini-2.0-flash'
                 for tentativa in range(max_tentativas):
                     try:
                         resposta = client.models.generate_content(
@@ -267,7 +279,7 @@ INSTRUÇÕES CRÍTICAS:
                                 print(f'Trocando para modelo fallback: {modelo_atual}')
                         else:
                             raise e
-                print(f'Retorno bruto do Gemini: {resposta.text}')
+                print(f'Retorno bruto do Gemini: [omitido por segurança]')
                 texto = resposta.text.strip()
 
                 texto = re.sub(r'^```[a-z]*\n?', '', texto)
@@ -395,6 +407,7 @@ def listar_dias():
 
 
 @app.route('/devolucoes/busca')
+@limiter.limit('60 per minute')
 def buscar_devolucoes():
     q = request.args.get('q', '').strip()
     if not q:
